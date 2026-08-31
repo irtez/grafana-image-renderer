@@ -1,4 +1,4 @@
-# grafana-image-renderer
+# grafana-image-renderer v5.8.11
 
 A backend service for Grafana.
 It provides panel and dashboard rendering with a headless browser (Chromium).
