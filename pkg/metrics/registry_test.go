@@ -82,7 +82,7 @@ func runSemanticMetricCapture(t *testing.T, collector capture.Collector) {
 		MaxJSONBytes:    4096,
 	}, collector)
 	require.NoError(t, err)
-	target, err := url.Parse("http://grafana:3000/render/d-solo/dash-secret/dashboard?render=1&panelId=4&from=100&to=200&tz=Europe%2FMoscow&var-x=secret-variable&siamCaptureVersion=1&siamCaptureKind=grafana-table")
+	target, err := url.Parse("http://grafana:3000/d-solo/dash-secret/dashboard?render=1&panelId=4&from=100&to=200&tz=Europe%2FMoscow&var-x=secret-variable&siamCaptureVersion=1&siamCaptureKind=grafana-table")
 	require.NoError(t, err)
 	session, err := engine.Match(target, capture.Transport{Encoding: "png", RenderKey: "rk", Domain: "grafana"})
 	require.NoError(t, err)

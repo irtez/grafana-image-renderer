@@ -110,8 +110,15 @@ const tableCaptureScript = `async (args) => {
       domain("TABLE_DATA_NOT_READY");
     }
 
-    const grids = Array.from(document.querySelectorAll('[role="grid"]'))
-      .filter((grid) => !grid.parentElement?.closest('[role="grid"]'));
+    let grids = [];
+    for (let attempt = 0; attempt < 60; attempt++) {
+      grids = Array.from(document.querySelectorAll('[role="grid"]'))
+        .filter((grid) => !grid.parentElement?.closest('[role="grid"]'));
+      if (grids.length !== 0) {
+        break;
+      }
+      await twoFrames();
+    }
     if (grids.length === 0) {
       domain("TABLE_GRID_NOT_FOUND");
     }

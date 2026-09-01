@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const validCaptureTarget = "http://grafana:3000/render/d-solo/cm-sla/dashboard?render=1&panelId=4&from=100&to=200&tz=Europe%2FMoscow&var-b=y&var-a=1&var-b=x&siamCaptureVersion=1&siamCaptureKind=grafana-table"
+const validCaptureTarget = "http://grafana:3000/d-solo/cm-sla/dashboard?render=1&panelId=4&from=100&to=200&tz=Europe%2FMoscow&var-b=y&var-a=1&var-b=x&siamCaptureVersion=1&siamCaptureKind=grafana-table"
 
 func captureTestConfig(enabled bool) config.CaptureConfig {
 	return config.CaptureConfig{
@@ -66,7 +66,7 @@ func TestMarkerAbsentKeepsNormalRenderPath(t *testing.T) {
 	require.NoError(t, err)
 
 	session, err := engine.Match(
-		mustTargetURL(t, "http://grafana:3000/render/d-solo/cm-sla/dashboard?render=1&panelId=4"),
+		mustTargetURL(t, "http://grafana:3000/d-solo/cm-sla/dashboard?render=1&panelId=4"),
 		Transport{Encoding: "pdf"},
 	)
 
@@ -87,12 +87,12 @@ func TestMarkerRejectsInvalidContracts(t *testing.T) {
 		{name: "version two", enabled: true, transport: validTransport(), mutateURL: setQuery("siamCaptureVersion", "2")},
 		{name: "unknown marker", enabled: true, transport: validTransport(), mutateURL: setQuery("siamCaptureFoo", "x")},
 		{name: "disabled", enabled: false, transport: validTransport()},
-		{name: "non render path", enabled: true, transport: validTransport(), mutateURL: setPath("/d-solo/cm-sla/dashboard")},
+		{name: "grafana render endpoint path", enabled: true, transport: validTransport(), mutateURL: setPath("/render/d-solo/cm-sla/dashboard")},
 		{name: "dashboard render", enabled: true, transport: validTransport(), mutateURL: setPath("/render/d/cm-sla/dashboard")},
-		{name: "empty uid", enabled: true, transport: validTransport(), mutateURL: setPath("/render/d-solo//dashboard")},
-		{name: "empty slug", enabled: true, transport: validTransport(), mutateURL: setPath("/render/d-solo/cm-sla/")},
-		{name: "dot uid", enabled: true, transport: validTransport(), mutateURL: setPath("/render/d-solo/./dashboard")},
-		{name: "dotdot slug", enabled: true, transport: validTransport(), mutateURL: setPath("/render/d-solo/cm-sla/..")},
+		{name: "empty uid", enabled: true, transport: validTransport(), mutateURL: setPath("/d-solo//dashboard")},
+		{name: "empty slug", enabled: true, transport: validTransport(), mutateURL: setPath("/d-solo/cm-sla/")},
+		{name: "dot uid", enabled: true, transport: validTransport(), mutateURL: setPath("/d-solo/./dashboard")},
+		{name: "dotdot slug", enabled: true, transport: validTransport(), mutateURL: setPath("/d-solo/cm-sla/..")},
 		{name: "missing panel", enabled: true, transport: validTransport(), mutateURL: deleteQuery("panelId")},
 		{name: "duplicate panel", enabled: true, transport: validTransport(), mutateURL: appendRaw("&panelId=4")},
 		{name: "noncanonical panel", enabled: true, transport: validTransport(), mutateURL: setQuery("panelId", "04")},

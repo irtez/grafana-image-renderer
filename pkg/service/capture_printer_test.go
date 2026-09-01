@@ -30,7 +30,7 @@ func TestCapturePrinterReturnsSessionJSONWithoutScreenshot(t *testing.T) {
 		MaxJSONBytes:    4096,
 	}, capturePrinterCollector{})
 	require.NoError(t, err)
-	target, err := url.Parse("http://grafana:3000/render/d-solo/dash/dashboard?render=1&panelId=4&from=100&to=200&tz=Europe%2FMoscow&siamCaptureVersion=1&siamCaptureKind=grafana-table")
+	target, err := url.Parse("http://grafana:3000/d-solo/dash/dashboard?render=1&panelId=4&from=100&to=200&tz=Europe%2FMoscow&siamCaptureVersion=1&siamCaptureKind=grafana-table")
 	require.NoError(t, err)
 	session, err := engine.Match(target, capture.Transport{Encoding: "png", RenderKey: "rk", Domain: "grafana"})
 	require.NoError(t, err)

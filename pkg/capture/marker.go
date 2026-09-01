@@ -108,7 +108,7 @@ func parseCaptureRequest(target *url.URL, transport Transport) (Request, string,
 	}
 
 	segments := strings.Split(target.Path, "/")
-	if len(segments) != 5 || segments[0] != "" || segments[1] != "render" || segments[2] != "d-solo" || invalidPathSegment(segments[3]) || invalidPathSegment(segments[4]) {
+	if len(segments) != 4 || segments[0] != "" || segments[1] != "d-solo" || invalidPathSegment(segments[2]) || invalidPathSegment(segments[3]) {
 		return Request{}, "", "", markerInvalid()
 	}
 
@@ -143,7 +143,7 @@ func parseCaptureRequest(target *url.URL, transport Transport) (Request, string,
 	cleaned.RawQuery = values.Encode()
 
 	return Request{
-		DashboardUID:  segments[3],
+		DashboardUID:  segments[2],
 		PanelID:       panelID,
 		Kind:          kind,
 		RenderFrom:    renderFrom,

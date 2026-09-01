@@ -43,7 +43,7 @@ Grafana proxies this through its normal remote-renderer integration. The rendere
 
 - both marker parameters occur exactly once;
 - no other `siamCapture*` parameter is present;
-- the callback path is `/render/d-solo/{uid}/{slug}` with canonical `panelId`, non-empty `from`, `to`, and `tz`, and `render=1`;
+- the Chromium navigation path produced by Grafana is `/d-solo/{uid}/{slug}` with canonical `panelId`, non-empty `from`, `to`, and `tz`, and `render=1`;
 - the outer renderer request uses `encoding=png` and has the existing non-empty `renderKey` and `domain`;
 - the feature is enabled and the collector kind is registered.
 

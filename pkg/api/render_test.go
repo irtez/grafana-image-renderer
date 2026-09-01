@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const apiCaptureTarget = "http://grafana:3000/render/d-solo/dash/dashboard?render=1&panelId=4&from=100&to=200&tz=Europe%2FMoscow&siamCaptureVersion=1&siamCaptureKind=grafana-table"
+const apiCaptureTarget = "http://grafana:3000/d-solo/dash/dashboard?render=1&panelId=4&from=100&to=200&tz=Europe%2FMoscow&siamCaptureVersion=1&siamCaptureKind=grafana-table"
 
 type handlerCollector struct{}
 
@@ -51,7 +51,7 @@ func (b *recordingBrowser) Render(_ context.Context, target string, printer serv
 func TestRenderWithoutMarkerUsesOriginalPNGPath(t *testing.T) {
 	browser := &recordingBrowser{}
 	engine := newAPIEngine(t, true)
-	target := "http://grafana:3000/render/d-solo/dash/dashboard?render=1&panelId=4"
+	target := "http://grafana:3000/d-solo/dash/dashboard?render=1&panelId=4"
 
 	response := serveRender(t, browser, engine, target, "png")
 
@@ -108,7 +108,7 @@ func TestSemanticMarkerRejectsPDFWithoutStartingBrowser(t *testing.T) {
 func TestUnmarkedPDFRemainsUnchanged(t *testing.T) {
 	browser := &recordingBrowser{}
 	engine := newAPIEngine(t, true)
-	target := "http://grafana:3000/render/d-solo/dash/dashboard?render=1&panelId=4"
+	target := "http://grafana:3000/d-solo/dash/dashboard?render=1&panelId=4"
 
 	response := serveRender(t, browser, engine, target, "pdf")
 
