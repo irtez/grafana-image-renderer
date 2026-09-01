@@ -14,6 +14,7 @@ import (
 	"time"
 	_ "time/tzdata" // fallback where we have no tzdata on the distro; used in LoadLocation
 
+	"github.com/grafana/grafana-image-renderer/pkg/capture"
 	"github.com/grafana/grafana-image-renderer/pkg/config"
 	"github.com/grafana/grafana-image-renderer/pkg/service"
 	"github.com/prometheus/client_golang/prometheus"
@@ -21,6 +22,10 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
+
+type browserRenderer interface {
+	Render(context.Context, string, service.Printer, ...service.RenderingOption) ([]byte, string, error)
+}
 
 var (
 	// This also implicitly gives us a count for each result type, so we can calculate success rate.
@@ -34,7 +39,7 @@ var (
 	regexpOnlyNumbers = regexp.MustCompile(`^[0-9]+$`)
 )
 
-func HandleGetRender(browser *service.BrowserService, apiConfig config.APIConfig) http.Handler {
+func HandleGetRender(browser browserRenderer, apiConfig config.APIConfig, captureEngine *capture.Engine) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tracer := tracer(r.Context())
 		ctx, span := tracer.Start(r.Context(), "HandleGetRender")
@@ -54,8 +59,6 @@ func HandleGetRender(browser *service.BrowserService, apiConfig config.APIConfig
 			http.Error(w, fmt.Sprintf("invalid 'url' query parameter: %v", err), http.StatusBadRequest)
 			return
 		}
-		span.SetAttributes(attribute.String("url", targetURL.String()))
-
 		var options []service.RenderingOption
 
 		width, height := -1, -1
@@ -137,89 +140,112 @@ func HandleGetRender(browser *service.BrowserService, apiConfig config.APIConfig
 			encoding = string(apiConfig.DefaultEncoding)
 		}
 		var printer service.Printer
-		switch encoding {
-		case "pdf":
-			var printerOpts []service.PDFPrinterOption
-
-			paper := r.URL.Query().Get("pdf.format")
-			if paper == "" {
-				// FIXME: legacy support; remove in some future release.
-				paper = targetURL.Query().Get("pdf.format")
-			}
-			if paper != "" {
-				var psz service.PaperSize
-				if err := psz.UnmarshalText([]byte(paper)); err != nil {
-					span.SetStatus(codes.Error, "invalid pdf.format query param")
-					span.RecordError(err, trace.WithAttributes(attribute.String("pdf.format", paper)))
-					http.Error(w, fmt.Sprintf("invalid 'pdf.format' query parameter: %v", err), http.StatusBadRequest)
-					return
-				}
-				printerOpts = append(printerOpts, service.WithPaperSize(psz))
-				span.SetAttributes(attribute.String("pdf.format", paper))
-			}
-
-			printBackground := r.URL.Query().Get("pdf.printBackground")
-			if printBackground == "" {
-				// FIXME: legacy support; remove in some future release.
-				printBackground = targetURL.Query().Get("pdf.printBackground")
-			}
-			if printBackground != "" {
-				printerOpts = append(printerOpts, service.WithPrintingBackground(printBackground == "true"))
-				span.SetAttributes(attribute.Bool("pdf.printBackground", printBackground == "true"))
-			}
-
-			pageRanges := r.URL.Query().Get("pdf.pageRanges")
-			if pageRanges == "" {
-				// FIXME: legacy support; remove in some future release.
-				pageRanges = targetURL.Query().Get("pdf.pageRanges")
-			}
-			if pageRanges != "" {
-				printerOpts = append(printerOpts, service.WithPageRanges(pageRanges))
-				span.SetAttributes(attribute.String("pdf.pageRanges", pageRanges))
-			}
-
-			var err error
-			printer, err = service.NewPDFPrinter(printerOpts...)
-			if err != nil {
-				span.SetStatus(codes.Error, "invalid pdf printer option")
-				span.RecordError(err)
-				http.Error(w, fmt.Sprintf("invalid request: %v", err), http.StatusBadRequest)
-				return
-			}
-			span.SetAttributes(attribute.String("encoding", "pdf"))
-
-			pdfLandscape := r.URL.Query().Get("pdf.landscape")
-			if pdfLandscape == "" {
-				// FIXME: legacy support; remove in some future release.
-				pdfLandscape = targetURL.Query().Get("pdf.landscape")
-			}
-			if pdfLandscape != "" {
-				options = append(options, service.WithLandscape(pdfLandscape == "true"))
-				span.SetAttributes(attribute.Bool("pdf.landscape", pdfLandscape == "true"))
-			}
-		case "png":
-			var printerOpts []service.PNGPrinterOption
-			if height == -1 {
-				printerOpts = append(printerOpts, service.WithFullHeight(true))
-				options = append(options, service.WithViewport(width, int(math.Floor(0.75*float64(width))))) // add some height to make scrolling faster
-				span.SetAttributes(attribute.Bool("fullHeight", true))
-			}
-
-			var err error
-			printer, err = service.NewPNGPrinter(printerOpts...)
-			if err != nil {
-				span.SetStatus(codes.Error, "invalid png printer option")
-				span.RecordError(err)
-				http.Error(w, fmt.Sprintf("invalid request: %v", err), http.StatusBadRequest)
-				return
-			}
-			span.SetAttributes(attribute.String("encoding", "png"))
-		default:
-			span.SetStatus(codes.Error, "invalid encoding query param")
-			span.RecordError(errors.New("invalid encoding"), trace.WithAttributes(attribute.String("encoding", encoding)))
-			http.Error(w, fmt.Sprintf("invalid 'encoding' query parameter: %q", encoding), http.StatusBadRequest)
+		captureSession, err := captureEngine.Match(targetURL, capture.Transport{
+			Encoding:  encoding,
+			RenderKey: renderKey,
+			Domain:    domain,
+		})
+		if err != nil {
+			span.SetStatus(codes.Error, "invalid semantic capture marker")
+			http.Error(w, "invalid semantic capture request", http.StatusBadRequest)
 			return
 		}
+		if captureSession != nil {
+			rawTargetURL = captureSession.NavigationURL()
+			targetURL, err = url.Parse(rawTargetURL)
+			if err != nil {
+				span.SetStatus(codes.Error, "invalid cleaned semantic capture URL")
+				http.Error(w, "invalid semantic capture request", http.StatusBadRequest)
+				return
+			}
+			printer = service.NewCapturePrinter(captureSession)
+			span.SetAttributes(attribute.String("encoding", "semantic-json"))
+		} else {
+			switch encoding {
+			case "pdf":
+				var printerOpts []service.PDFPrinterOption
+
+				paper := r.URL.Query().Get("pdf.format")
+				if paper == "" {
+					// FIXME: legacy support; remove in some future release.
+					paper = targetURL.Query().Get("pdf.format")
+				}
+				if paper != "" {
+					var psz service.PaperSize
+					if err := psz.UnmarshalText([]byte(paper)); err != nil {
+						span.SetStatus(codes.Error, "invalid pdf.format query param")
+						span.RecordError(err, trace.WithAttributes(attribute.String("pdf.format", paper)))
+						http.Error(w, fmt.Sprintf("invalid 'pdf.format' query parameter: %v", err), http.StatusBadRequest)
+						return
+					}
+					printerOpts = append(printerOpts, service.WithPaperSize(psz))
+					span.SetAttributes(attribute.String("pdf.format", paper))
+				}
+
+				printBackground := r.URL.Query().Get("pdf.printBackground")
+				if printBackground == "" {
+					// FIXME: legacy support; remove in some future release.
+					printBackground = targetURL.Query().Get("pdf.printBackground")
+				}
+				if printBackground != "" {
+					printerOpts = append(printerOpts, service.WithPrintingBackground(printBackground == "true"))
+					span.SetAttributes(attribute.Bool("pdf.printBackground", printBackground == "true"))
+				}
+
+				pageRanges := r.URL.Query().Get("pdf.pageRanges")
+				if pageRanges == "" {
+					// FIXME: legacy support; remove in some future release.
+					pageRanges = targetURL.Query().Get("pdf.pageRanges")
+				}
+				if pageRanges != "" {
+					printerOpts = append(printerOpts, service.WithPageRanges(pageRanges))
+					span.SetAttributes(attribute.String("pdf.pageRanges", pageRanges))
+				}
+
+				var err error
+				printer, err = service.NewPDFPrinter(printerOpts...)
+				if err != nil {
+					span.SetStatus(codes.Error, "invalid pdf printer option")
+					span.RecordError(err)
+					http.Error(w, fmt.Sprintf("invalid request: %v", err), http.StatusBadRequest)
+					return
+				}
+				span.SetAttributes(attribute.String("encoding", "pdf"))
+
+				pdfLandscape := r.URL.Query().Get("pdf.landscape")
+				if pdfLandscape == "" {
+					// FIXME: legacy support; remove in some future release.
+					pdfLandscape = targetURL.Query().Get("pdf.landscape")
+				}
+				if pdfLandscape != "" {
+					options = append(options, service.WithLandscape(pdfLandscape == "true"))
+					span.SetAttributes(attribute.Bool("pdf.landscape", pdfLandscape == "true"))
+				}
+			case "png":
+				var printerOpts []service.PNGPrinterOption
+				if height == -1 {
+					printerOpts = append(printerOpts, service.WithFullHeight(true))
+					options = append(options, service.WithViewport(width, int(math.Floor(0.75*float64(width))))) // add some height to make scrolling faster
+					span.SetAttributes(attribute.Bool("fullHeight", true))
+				}
+
+				var err error
+				printer, err = service.NewPNGPrinter(printerOpts...)
+				if err != nil {
+					span.SetStatus(codes.Error, "invalid png printer option")
+					span.RecordError(err)
+					http.Error(w, fmt.Sprintf("invalid request: %v", err), http.StatusBadRequest)
+					return
+				}
+				span.SetAttributes(attribute.String("encoding", "png"))
+			default:
+				span.SetStatus(codes.Error, "invalid encoding query param")
+				span.RecordError(errors.New("invalid encoding"), trace.WithAttributes(attribute.String("encoding", encoding)))
+				http.Error(w, fmt.Sprintf("invalid 'encoding' query parameter: %q", encoding), http.StatusBadRequest)
+				return
+			}
+		}
+		span.SetAttributes(attribute.String("url", targetURL.String()))
 		if acceptLanguage := r.Header.Get("Accept-Language"); acceptLanguage != "" {
 			options = append(options, service.WithHeader("Accept-Language", acceptLanguage))
 			span.SetAttributes(attribute.String("Accept-Language", acceptLanguage))

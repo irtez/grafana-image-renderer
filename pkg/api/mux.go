@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/grafana/grafana-image-renderer/pkg/api/middleware"
+	"github.com/grafana/grafana-image-renderer/pkg/capture"
 	"github.com/grafana/grafana-image-renderer/pkg/config"
 	"github.com/grafana/grafana-image-renderer/pkg/service"
 	"github.com/prometheus/client_golang/prometheus"
@@ -23,6 +24,7 @@ func NewHandler(
 	processStatService *service.ProcessStatService,
 	browser *service.BrowserService,
 	versions *service.VersionService,
+	captureEngine *capture.Engine,
 ) (http.Handler, error) {
 	limiter, err := middleware.NewRateLimiter(processStatService, rateLimitConfig)
 	if err != nil {
@@ -41,7 +43,7 @@ func NewHandler(
 			middleware.TrustedURL(
 				limiter.Limit(
 					middleware.InFlightMetrics(
-						HandleGetRender(browser, apiConfig)))),
+						HandleGetRender(browser, apiConfig, captureEngine)))),
 			serverConfig.AuthTokens...))
 	mux.Handle("GET /render/csv",
 		middleware.RequireAuthToken(

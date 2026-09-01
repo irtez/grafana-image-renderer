@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/grafana/grafana-image-renderer/pkg/api"
+	"github.com/grafana/grafana-image-renderer/pkg/capture"
 	"github.com/grafana/grafana-image-renderer/pkg/config"
 	"github.com/grafana/grafana-image-renderer/pkg/metrics"
 	"github.com/grafana/grafana-image-renderer/pkg/service"
@@ -98,7 +99,11 @@ func run(ctx context.Context, c *cli.Command) error {
 	browser := service.NewBrowserService(cfg.browser, processStatService)
 	versions := service.NewVersionService()
 	metrics := metrics.NewRegistry()
-	handler, err := api.NewHandler(metrics, cfg.server, cfg.api, cfg.rateLimit, processStatService, browser, versions)
+	captureEngine, err := capture.NewEngine(cfg.capture)
+	if err != nil {
+		return fmt.Errorf("failed to configure semantic capture: %w", err)
+	}
+	handler, err := api.NewHandler(metrics, cfg.server, cfg.api, cfg.rateLimit, processStatService, browser, versions, captureEngine)
 	if err != nil {
 		return fmt.Errorf("failed to create API handler: %w", err)
 	}
