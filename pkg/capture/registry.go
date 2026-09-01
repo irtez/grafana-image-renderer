@@ -88,23 +88,32 @@ func (s *Session) Capture(parent context.Context) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(parent, s.timeout)
 	defer cancel()
 
+	kind := s.collector.Kind()
+	result := "ok"
+	collectStarted := time.Now()
 	collection, err := s.collector.Collect(ctx, s.request, s.maxJSONBytes)
+	MetricSemanticCaptureStageDuration.WithLabelValues(kind, "collect").Observe(time.Since(collectStarted).Seconds())
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded), errors.Is(ctx.Err(), context.DeadlineExceeded):
+			result = "timeout"
 			collection = Collection{Error: &Error{
 				Code:    "CAPTURE_TIMEOUT",
 				Message: "semantic capture timed out",
 			}}
 		default:
+			result = "internal_error"
 			collection = Collection{Error: &Error{
 				Code:    "CAPTURE_INTERNAL_ERROR",
 				Message: "semantic capture failed",
 			}}
 		}
+	} else if collection.Error != nil {
+		result = "domain_error"
 	}
 
-	return MarshalCollection(Metadata{
+	serializeStarted := time.Now()
+	body, marshalErr := MarshalCollection(Metadata{
 		DashboardUID:  s.request.DashboardUID,
 		PanelID:       s.request.PanelID,
 		Kind:          s.request.Kind,
@@ -114,4 +123,12 @@ func (s *Session) Capture(parent context.Context) ([]byte, error) {
 		VariablesHash: s.request.VariablesHash,
 		CapturedAtMs:  time.Now().UnixMilli(),
 	}, collection, s.maxJSONBytes)
+	MetricSemanticCaptureStageDuration.WithLabelValues(kind, "serialize").Observe(time.Since(serializeStarted).Seconds())
+	if marshalErr != nil {
+		MetricSemanticCaptureRequests.WithLabelValues(kind, "serialize_error").Inc()
+		return nil, marshalErr
+	}
+	MetricSemanticCapturePayloadBytes.WithLabelValues(kind).Observe(float64(len(body)))
+	MetricSemanticCaptureRequests.WithLabelValues(kind, result).Inc()
+	return body, nil
 }
