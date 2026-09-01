@@ -21,7 +21,7 @@ func NewCmd() *cli.Command {
 	return &cli.Command{
 		Name:   "server",
 		Usage:  "Run the server part of the service.",
-		Flags:  slices.Concat(config.ServerFlags(), config.TracingFlags(), config.BrowserFlags(), config.RateLimitFlags(), config.APIFlags()),
+		Flags:  slices.Concat(config.ServerFlags(), config.TracingFlags(), config.BrowserFlags(), config.RateLimitFlags(), config.APIFlags(), config.CaptureFlags()),
 		Action: run,
 	}
 }
@@ -32,6 +32,7 @@ type Cfg struct {
 	tracing   config.TracingConfig
 	rateLimit config.RateLimitConfig
 	api       config.APIConfig
+	capture   config.CaptureConfig
 }
 
 func ParseConfig(c *cli.Command) (*Cfg, error) {
@@ -55,12 +56,17 @@ func ParseConfig(c *cli.Command) (*Cfg, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse api config: %w", err)
 	}
+	captureConfig, err := config.CaptureConfigFromCommand(c)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse capture config: %w", err)
+	}
 	return &Cfg{
 		server:    serverConfig,
 		browser:   browserConfig,
 		tracing:   tracingConfig,
 		rateLimit: rateLimitConfig,
 		api:       apiConfig,
+		capture:   captureConfig,
 	}, nil
 }
 
