@@ -99,7 +99,7 @@ func run(ctx context.Context, c *cli.Command) error {
 	browser := service.NewBrowserService(cfg.browser, processStatService)
 	versions := service.NewVersionService()
 	metrics := metrics.NewRegistry()
-	captureEngine, err := capture.NewEngine(cfg.capture, capture.NewTableCollector())
+	captureEngine, err := capture.NewEngine(cfg.capture, capture.NewTableCollector(), capture.NewSVGCollector())
 	if err != nil {
 		return fmt.Errorf("failed to configure semantic capture: %w", err)
 	}
