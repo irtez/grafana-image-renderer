@@ -1,0 +1,64 @@
+{
+  "kind": "svgmodifier",
+  "schemaVersion": 1,
+  "producer": {
+    "id": "svgmodifier-panel",
+    "version": "1.4.0"
+  },
+  "panel": {
+    "id": 7,
+    "mode": "svg",
+    "title": "Example panel"
+  },
+  "observed": {
+    "generation": 3,
+    "dataState": "Done",
+    "effectiveFromMs": 1700000000000,
+    "effectiveToMs": 1700003600000,
+    "evaluatedAtMs": 1700003600100
+  },
+  "evaluationStatus": "invalid_configuration",
+  "configuration": {
+    "yamlStatus": "invalid",
+    "svgStatus": "invalid",
+    "rules": [],
+    "diagnosticIds": ["invalid-yaml"]
+  },
+  "elements": [],
+  "metrics": [],
+  "expressions": [],
+  "diagnostics": [
+    {
+      "id": "invalid-yaml",
+      "code": "YAML_PARSE_ERROR",
+      "severity": "error",
+      "message": "Invalid sequence",
+      "source": {
+        "page": "Example",
+        "pageIndex": 0,
+        "path": "changes[0]",
+        "line": 1,
+        "column": 1,
+        "metricsIndex": null,
+        "queryIndex": null,
+        "thresholdIndex": null,
+        "rowIndex": null,
+        "columnIndex": null,
+        "refId": null,
+        "legend": null,
+        "expressionRefId": null
+      },
+      "elementIds": [],
+      "ruleIds": [],
+      "metricIds": []
+    }
+  ],
+  "diagram": {
+    "status": "invalid",
+    "coordinateSpace": null,
+    "viewport": null,
+    "items": [],
+    "connections": [],
+    "diagnosticIds": []
+  }
+}

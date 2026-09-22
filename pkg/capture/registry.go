@@ -110,6 +110,9 @@ func (s *Session) Capture(parent context.Context) ([]byte, error) {
 		}
 	} else if collection.Error != nil {
 		result = "domain_error"
+		if collection.Error.Code == "CAPTURE_TIMEOUT" {
+			result = "timeout"
+		}
 	}
 
 	serializeStarted := time.Now()

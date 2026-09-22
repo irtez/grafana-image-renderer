@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/grafana/grafana-image-renderer/pkg/config"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 )
 
@@ -67,6 +68,21 @@ func TestSessionMapsTimeoutToBoundedError(t *testing.T) {
 
 	require.NoError(t, err)
 	requireCaptureError(t, body, "CAPTURE_TIMEOUT")
+}
+
+func TestSessionCountsProducerTimeoutAsTimeout(t *testing.T) {
+	metric := MetricSemanticCaptureRequests.WithLabelValues("grafana-table", "timeout")
+	before, after := &dto.Metric{}, &dto.Metric{}
+	require.NoError(t, metric.Write(before))
+	session := matchedSession(t, captureTestConfig(true), literalCollector{
+		kind:       "grafana-table",
+		collection: Collection{Error: &Error{Code: "CAPTURE_TIMEOUT", Message: "capture timed out"}},
+	})
+	body, err := session.Capture(t.Context())
+	require.NoError(t, err)
+	requireCaptureError(t, body, "CAPTURE_TIMEOUT")
+	require.NoError(t, metric.Write(after))
+	require.Equal(t, before.GetCounter().GetValue()+1, after.GetCounter().GetValue())
 }
 
 func TestSessionMapsUnexpectedCollectorErrorWithoutLeakingDetails(t *testing.T) {
