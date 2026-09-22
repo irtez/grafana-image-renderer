@@ -298,11 +298,15 @@ func (s *BrowserService) Render(ctx context.Context, url string, printer Printer
 		observingAction("setHeaders", setHeaders(browserCtx, cfg.Headers)),
 		observingAction("setCookies", setCookies(cfg.Cookies)),
 		observingAction("addBinding", runtime.AddBinding("__grafanaImageRendererMessageChannel")),
-		observingAction("Navigate", chromedp.Navigate(url)),
+		navigationActions(printer, chromedp.Navigate(url)),
 		observingAction("WaitReady(body)", chromedp.WaitReady("body", chromedp.ByQuery)), // wait for a body to exist; this is when the page has started to actually render
-		observingAction("waitForDuration", waitForDuration(requestConfig.ReadinessPriorWait)),
-		observingAction("scrollForElements", scrollForElements(requestConfig.TimeBetweenScrolls, requestConfig.MaxHeight)),
-		observingAction("waitForReady", waitForReady(browserCtx, cfg, url)),
+		readinessActions(printer, func() chromedp.Tasks {
+			return chromedp.Tasks{
+				observingAction("waitForDuration", waitForDuration(requestConfig.ReadinessPriorWait)),
+				observingAction("scrollForElements", scrollForElements(requestConfig.TimeBetweenScrolls, requestConfig.MaxHeight)),
+				observingAction("waitForReady", waitForReady(browserCtx, cfg, url)),
+			}
+		}),
 		observingAction("printer.prepare", printer.prepare(cfg, url)),
 		observingAction("printer.action", printer.action(fileChan, cfg, url)),
 	}

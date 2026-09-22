@@ -16,6 +16,17 @@ func NewCapturePrinter(session *capture.Session) Printer {
 	return &capturePrinter{session: session}
 }
 
+func (p *capturePrinter) beforeNavigate() chromedp.Action {
+	if initialize := p.session.Initialization(); initialize != nil {
+		return chromedp.ActionFunc(initialize)
+	}
+	return nil
+}
+
+func (p *capturePrinter) usesProducerReadiness() bool {
+	return p.session.UsesProducerReadiness()
+}
+
 func (p *capturePrinter) prepare(_ config.BrowserConfig, _ string) chromedp.Action {
 	return chromedp.ActionFunc(func(context.Context) error {
 		return nil
