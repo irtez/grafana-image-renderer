@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -147,6 +148,19 @@ func HandleGetRender(browser browserRenderer, apiConfig config.APIConfig, captur
 		})
 		if err != nil {
 			span.SetStatus(codes.Error, "invalid semantic capture marker")
+			for _, version := range targetURL.Query()["siamCaptureVersion"] {
+				if version == "2" {
+					code := "CAPTURE_MARKER_INVALID"
+					var protocol *capture.ProtocolError
+					if errors.As(err, &protocol) {
+						code = protocol.Code
+					}
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusBadRequest)
+					_ = json.NewEncoder(w).Encode(capture.BatchEnvelope{Contract: capture.ContractV2, Status: "failed", Panels: []capture.PanelResult{}, Error: &capture.Error{Code: code, Message: "invalid semantic capture request"}})
+					return
+				}
+			}
 			http.Error(w, "invalid semantic capture request", http.StatusBadRequest)
 			return
 		}

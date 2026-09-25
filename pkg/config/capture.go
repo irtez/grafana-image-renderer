@@ -8,13 +8,16 @@ import (
 )
 
 type CaptureConfig struct {
-	SemanticEnabled bool
-	Timeout         time.Duration
-	MaxJSONBytes    int
+	SVGMaxPanels     int
+	SVGMaxPanelBytes int
+	SVGMaxJSONBytes  int
+	SemanticEnabled  bool
+	Timeout          time.Duration
+	MaxJSONBytes     int
 }
 
 func CaptureFlags() []cli.Flag {
-	return []cli.Flag{
+	flags := []cli.Flag{
 		&cli.BoolFlag{
 			Name:    "capture.semantic-enabled",
 			Value:   false,
@@ -46,12 +49,32 @@ func CaptureFlags() []cli.Flag {
 			},
 		},
 	}
+	for _, setting := range []struct {
+		name, env string
+		value     int
+	}{
+		{"svg-max-panels", "CAPTURE_SVG_MAX_PANELS", 16},
+		{"svg-max-panel-bytes", "CAPTURE_SVG_MAX_PANEL_BYTES", 4194304},
+		{"svg-max-json-bytes", "CAPTURE_SVG_MAX_JSON_BYTES", 16777216},
+	} {
+		key := "capture." + setting.name
+		flags = append(flags, &cli.IntFlag{Name: key, Value: setting.value, Usage: "SVG capture limit. [config: " + key + "]", Sources: FromConfig(key, setting.env), Validator: func(v int) error {
+			if v <= 0 {
+				return fmt.Errorf("%s must be positive", key)
+			}
+			return nil
+		}})
+	}
+	return flags
 }
 
 func CaptureConfigFromCommand(c *cli.Command) (CaptureConfig, error) {
 	return CaptureConfig{
-		SemanticEnabled: c.Bool("capture.semantic-enabled"),
-		Timeout:         c.Duration("capture.timeout"),
-		MaxJSONBytes:    c.Int("capture.max-json-bytes"),
+		SVGMaxPanels:     c.Int("capture.svg-max-panels"),
+		SVGMaxPanelBytes: c.Int("capture.svg-max-panel-bytes"),
+		SVGMaxJSONBytes:  c.Int("capture.svg-max-json-bytes"),
+		SemanticEnabled:  c.Bool("capture.semantic-enabled"),
+		Timeout:          c.Duration("capture.timeout"),
+		MaxJSONBytes:     c.Int("capture.max-json-bytes"),
 	}, nil
 }

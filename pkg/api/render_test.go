@@ -85,6 +85,18 @@ func TestInvalidSemanticMarkerDoesNotStartBrowser(t *testing.T) {
 	require.Zero(t, browser.calls)
 }
 
+func TestInvalidV2SelectionReturnsJSONWithoutStartingBrowser(t *testing.T) {
+	browser := &recordingBrowser{}
+	target := "http://grafana:3000/d/example/map?render=1&from=now-3h&to=now&tz=UTC&siamCaptureVersion=2&siamCaptureKind=svgmodifier&siamCapturePanels=7,7&token=do-not-reflect"
+	response := serveRender(t, browser, newAPIEngine(t, true), target, "png")
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	require.Zero(t, browser.calls)
+	require.Equal(t, "application/json", response.Header().Get("Content-Type"))
+	require.Contains(t, response.Body.String(), `"contract":"siam-render-capture/v2"`)
+	require.Contains(t, response.Body.String(), `"code":"CAPTURE_MARKER_INVALID"`)
+	require.NotContains(t, response.Body.String(), "do-not-reflect")
+}
+
 func TestDisabledSemanticMarkerDoesNotStartBrowser(t *testing.T) {
 	browser := &recordingBrowser{}
 	engine := newAPIEngine(t, false)

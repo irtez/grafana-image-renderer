@@ -21,6 +21,18 @@ type Engine struct {
 }
 
 func NewEngine(cfg config.CaptureConfig, collectors ...Collector) (*Engine, error) {
+	if cfg.SVGMaxPanels == 0 {
+		cfg.SVGMaxPanels = 16
+	}
+	if cfg.SVGMaxPanelBytes == 0 {
+		cfg.SVGMaxPanelBytes = 4194304
+	}
+	if cfg.SVGMaxJSONBytes == 0 {
+		cfg.SVGMaxJSONBytes = 16777216
+	}
+	if cfg.SVGMaxPanels < 1 || cfg.SVGMaxPanelBytes < 1 || cfg.SVGMaxJSONBytes < 1 {
+		return nil, fmt.Errorf("SVG limits must be positive")
+	}
 	if cfg.Timeout <= 0 {
 		return nil, fmt.Errorf("capture timeout must be positive")
 	}
@@ -52,6 +64,9 @@ func (e *Engine) Match(target *url.URL, transport Transport) (*Session, error) {
 		return nil, nil
 	}
 	if !e.config.SemanticEnabled {
+		return nil, markerInvalid()
+	}
+	if request.Version == 2 && len(request.PanelIDs) > e.config.SVGMaxPanels {
 		return nil, markerInvalid()
 	}
 	collector, ok := e.collectors[kind]

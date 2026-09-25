@@ -15,6 +15,7 @@ import (
 const (
 	markerVersion = "siamCaptureVersion"
 	markerKind    = "siamCaptureKind"
+	markerPanels  = "siamCapturePanels"
 )
 
 type Transport struct {
@@ -91,16 +92,23 @@ func parseCaptureRequest(target *url.URL, transport Transport) (Request, string,
 	}
 
 	for key := range values {
-		if strings.HasPrefix(key, "siamCapture") && key != markerVersion && key != markerKind {
+		if strings.HasPrefix(key, "siamCapture") && key != markerVersion && key != markerKind && key != markerPanels {
 			return Request{}, "", "", markerInvalid()
 		}
 	}
 	version, ok := singleton(values, markerVersion)
-	if !ok || version != "1" {
+	if !ok || (version != "1" && version != "2") {
 		return Request{}, "", "", markerInvalid()
 	}
 	kind, ok := singleton(values, markerKind)
 	if !ok || kind == "" {
+		return Request{}, "", "", markerInvalid()
+	}
+	v2 := version == "2" && kind == "svgmodifier"
+	if (version == "2" || kind == "svgmodifier") && !v2 {
+		return Request{}, "", "", markerInvalid()
+	}
+	if !v2 && values.Has(markerPanels) {
 		return Request{}, "", "", markerInvalid()
 	}
 	if transport.Encoding != "png" || transport.RenderKey == "" || transport.Domain == "" {
@@ -108,7 +116,16 @@ func parseCaptureRequest(target *url.URL, transport Transport) (Request, string,
 	}
 
 	segments := strings.Split(target.Path, "/")
-	if len(segments) != 4 || segments[0] != "" || segments[1] != "d-solo" || invalidPathSegment(segments[2]) || invalidPathSegment(segments[3]) {
+	if len(segments) < 4 || segments[0] != "" || (!v2 && len(segments) != 4) {
+		return Request{}, "", "", markerInvalid()
+	}
+	route := len(segments) - 3
+	for index, part := range segments[1:] {
+		if invalidPathSegment(part) || (index < route-1 && part == "render") || strings.ContainsAny(part, "\\\x00") {
+			return Request{}, "", "", markerInvalid()
+		}
+	}
+	if segments[route] != "d-solo" && !(v2 && segments[route] == "d") {
 		return Request{}, "", "", markerInvalid()
 	}
 
@@ -116,13 +133,35 @@ func parseCaptureRequest(target *url.URL, transport Transport) (Request, string,
 	if !ok || render != "1" {
 		return Request{}, "", "", markerInvalid()
 	}
-	panelIDRaw, ok := singleton(values, "panelId")
-	if !ok {
-		return Request{}, "", "", markerInvalid()
-	}
-	panelID, err := strconv.Atoi(panelIDRaw)
-	if err != nil || panelID < 0 || strconv.Itoa(panelID) != panelIDRaw {
-		return Request{}, "", "", markerInvalid()
+	panelID := 0
+	var panelIDs []int
+	if v2 && segments[route] == "d" {
+		raw, valid := nonEmptySingleton(values, markerPanels)
+		if !valid || values.Has("panelId") {
+			return Request{}, "", "", markerInvalid()
+		}
+		seen := map[int]bool{}
+		for _, part := range strings.Split(raw, ",") {
+			id, valid := parsePanelID(part)
+			if !valid || seen[id] {
+				return Request{}, "", "", markerInvalid()
+			}
+			seen[id] = true
+			panelIDs = append(panelIDs, id)
+		}
+	} else {
+		raw, valid := singleton(values, "panelId")
+		if v2 {
+			raw = strings.TrimPrefix(raw, "panel-")
+		}
+		var canonical bool
+		panelID, canonical = parsePanelID(raw)
+		if !valid || !canonical || values.Has(markerPanels) {
+			return Request{}, "", "", markerInvalid()
+		}
+		if v2 {
+			panelIDs = []int{panelID}
+		}
 	}
 	renderFrom, ok := nonEmptySingleton(values, "from")
 	if !ok {
@@ -140,10 +179,21 @@ func parseCaptureRequest(target *url.URL, transport Transport) (Request, string,
 	cleaned := *target
 	values.Del(markerVersion)
 	values.Del(markerKind)
+	values.Del(markerPanels)
+	if v2 {
+		values.Del("refresh")
+	}
 	cleaned.RawQuery = values.Encode()
 
 	return Request{
-		DashboardUID:  segments[2],
+		Version: func() int {
+			if v2 {
+				return 2
+			}
+			return 0
+		}(),
+		PanelIDs:      panelIDs,
+		DashboardUID:  segments[route+1],
 		PanelID:       panelID,
 		Kind:          kind,
 		RenderFrom:    renderFrom,
@@ -151,6 +201,11 @@ func parseCaptureRequest(target *url.URL, transport Transport) (Request, string,
 		Timezone:      timezone,
 		VariablesHash: VariablesHash(values),
 	}, cleaned.String(), kind, nil
+}
+
+func parsePanelID(raw string) (int, bool) {
+	id, err := strconv.Atoi(raw)
+	return id, err == nil && id >= 0 && strconv.Itoa(id) == raw && int64(id) <= 9007199254740991
 }
 
 func singleton(values url.Values, key string) (string, bool) {

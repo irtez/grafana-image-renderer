@@ -8,6 +8,8 @@ import (
 const ContractV1 = "siam-render-capture/v1"
 
 type Request struct {
+	Version       int
+	PanelIDs      []int
 	DashboardUID  string
 	PanelID       int
 	Kind          string

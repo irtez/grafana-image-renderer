@@ -14,6 +14,18 @@ Node.js is required for `TestSVGScriptRuntime`: it executes the embedded receive
 
 ## Routing and lifecycle
 
+### SVG capture v2
+
+| Case | Expected behavior | Automated coverage |
+|---|---|---|
+| V2 solo and explicit dashboard panel list, including subpath | Normalize solo panel-N, preserve requested order and repeated variables; remove capture markers from navigation | `TestV2MarkersSelectOrderedBatchOrSolo` |
+| Duplicate/empty/unsafe IDs, mixed selectors, excess panels, v1 SVG | Reject before browser work; no PNG fallback | `TestV2MarkersRejectAmbiguousSelection` |
+| V2 invalid request | JSON failed envelope without reflecting unvalidated metadata or credentials | `TestInvalidV2SelectionReturnsJSONWithoutStartingBrowser` |
+| Ordered panel results and UTF-8 boundary | complete/partial/failed describes collection; raw numeric precision remains unchanged | `TestV2EnvelopePreservesOrderStatusAndPrecision` |
+| Oversized batch | Top-level overflow, every requested ID retained as an error, no arbitrary payload prefix | `TestV2EnvelopeNeverTruncatesAnOversizedBatch` |
+| Missing/duplicate/conflicting result entries | Reject malformed internal envelope instead of publishing success | `TestV2EnvelopeRejectsMissingDuplicateOrConflictingEntries` |
+| SVG defaults and environment limits | Separate panel/count/total limits do not change TableNG byte default | `pkg/config/capture_test.go` |
+
 | Case | Expected behavior | Automated coverage |
 |---|---|---|
 | No capture marker | Ordinary rendering, no SVG bootstrap action or frame polling; image readiness remains enabled. | `TestMarkerAbsentKeepsNormalRenderPath`, `TestOrdinaryNavigationDoesNotAddInitializationAction`, `TestOrdinaryReadinessKeepsImageWait` |
