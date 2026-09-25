@@ -4,7 +4,7 @@ A backend service for Grafana.
 It provides panel and dashboard rendering with a headless browser (Chromium).
 You can get your favourite dashboards as PDFs, PNGs, or with Grafana Enterprise, CSVs and even over emails with Grafana Reports.
 
-This fork's opt-in TableNG JSON mode is documented in [Siam semantic panel capture](docs/siam-semantic-capture.md).
+This fork's opt-in TableNG and SVG Modifier JSON modes are documented in [Siam semantic panel capture](docs/siam-semantic-capture.md).
 
 ## Installation
 

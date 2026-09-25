@@ -105,3 +105,44 @@ func TestSVGBatchDoesNotConvertClientCancellationToSuccess(t *testing.T) {
 	_, err := collectSVGBatch(ctx, batchRequest(), 4194304, nil)
 	require.ErrorIs(t, err, context.Canceled)
 }
+
+func TestSVGBatchCacheStampMatchesBrowserKeys(t *testing.T) {
+	state := batchFixture(t, 7)
+	raw, err := json.Marshal(svgStamp{Identity: state.Identity, Run: state.Run, PayloadBytes: state.PayloadBytes})
+	require.NoError(t, err)
+	var stamp map[string]any
+	require.NoError(t, json.Unmarshal(raw, &stamp))
+	require.Contains(t, stamp, "identity")
+	require.Contains(t, stamp, "run")
+	require.Contains(t, stamp, "payloadBytes")
+}
+
+func TestSVGBatchDeadlineDistinguishesMissingPendingAndInactive(t *testing.T) {
+	for _, tc := range []struct {
+		status string
+		active bool
+		code   string
+	}{
+		{"idle", true, "CAPTURE_PRODUCER_MISSING"}, {"pending", true, "CAPTURE_TIMEOUT"}, {"idle", false, "CAPTURE_TIMEOUT"},
+	} {
+		t.Run(tc.status+tc.code, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 75*time.Millisecond)
+			defer cancel()
+			calls := 0
+			got, err := collectSVGBatch(ctx, batchRequest(), 4194304, func(ctx context.Context, _ int, _ map[int]svgStamp) (svgBatchStep, error) {
+				calls++
+				if calls > 1 {
+					<-ctx.Done()
+					return svgBatchStep{}, ctx.Err()
+				}
+				s := batchStep(svgPanelState{8, batchFixture(t, 8)}, svgPanelState{7, svgScriptResult{Status: tc.status}})
+				s.Layout.Panels[1].Active = tc.active
+				return s, nil
+			})
+			require.NoError(t, err)
+			batch := got.Payload.(BatchCollection)
+			require.Equal(t, "ok", batch.Panels[0].Status)
+			require.Equal(t, tc.code, batch.Panels[1].Error.Code)
+		})
+	}
+}

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/chromedp/cdproto/page"
 )
@@ -43,59 +42,10 @@ type svgScriptResult struct {
 	Error        *svgScriptError `json:"error"`
 }
 
-// CDP переносит bounded JSON как строку: его собственное escaping не меняет
-// byte counter снимка, и Go не преобразует исходные числовые токены через float64.
-func svgTransportRead(panelID int) string {
-	return `(() => {
-  const state = ` + svgReadExpression(panelID) + `;
-  if (state.status === 'terminal-ok') {
-    return {status: state.status, identity: state.identity, run: state.run,
-      snapshotJSON: JSON.stringify(state.snapshot), payloadBytes: state.payloadBytes};
-  }
-  return state;
-})()`
-}
-
 func (*SVGCollector) Collect(ctx context.Context, request Request, maxBytes int) (Collection, error) {
 	return collectSVGBatch(ctx, request, maxBytes, func(ctx context.Context, focus int, stamps map[int]svgStamp) (svgBatchStep, error) {
 		return readSVGBatch(ctx, request, focus, stamps)
 	})
-}
-
-func collectSVG(ctx context.Context, request Request, maxBytes int, read func(context.Context) (svgScriptResult, error)) (Collection, error) {
-	ticker := time.NewTicker(50 * time.Millisecond)
-	defer ticker.Stop()
-	lastStatus := ""
-	for {
-		if err := ctx.Err(); err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				return svgWaitError(lastStatus), nil
-			}
-			return Collection{}, err
-		}
-		state, err := read(ctx)
-		if err != nil {
-			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				return svgWaitError(lastStatus), nil
-			}
-			return Collection{}, err
-		}
-		if collection, terminal := svgCollectionFromScript(state, request, maxBytes); terminal {
-			return collection, nil
-		}
-		lastStatus = state.Status
-		select {
-		case <-ctx.Done():
-		case <-ticker.C:
-		}
-	}
-}
-
-func svgWaitError(status string) Collection {
-	if status == "idle" {
-		return svgError("CAPTURE_PRODUCER_MISSING")
-	}
-	return svgError("CAPTURE_TIMEOUT")
 }
 
 func svgCollectionFromScript(state svgScriptResult, request Request, maxBytes int) (Collection, bool) {

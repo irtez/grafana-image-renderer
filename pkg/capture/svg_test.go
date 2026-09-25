@@ -1,11 +1,9 @@
 package capture
 
 import (
-	"context"
 	"encoding/json"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -31,9 +29,9 @@ func TestSVGCollectorKeepsCompletePayloadWithoutTrimming(t *testing.T) {
 	require.Equal(t, *state.SnapshotJSON, string(raw))
 	_, trims := collection.Payload.(PayloadTrimmer)
 	require.False(t, trims)
-	body, err := MarshalCollection(Metadata{PanelID: 7, Kind: "svgmodifier"}, collection, 512)
+	body, err := MarshalBatch(Request{PanelIDs: []int{7}}, []PanelResult{{PanelID: 7, Status: "ok", Payload: raw}}, nil, 0, 1, 1024)
 	require.NoError(t, err)
-	requireCaptureError(t, body, "CAPTURE_PAYLOAD_TOO_LARGE")
+	require.Contains(t, string(body), `"code":"CAPTURE_PAYLOAD_TOO_LARGE"`)
 }
 
 func TestSVGCollectorWaitsWithoutReturningOldPayload(t *testing.T) {
@@ -90,40 +88,5 @@ func TestSVGCollectorAllowsOnlySafeErrorCodes(t *testing.T) {
 			require.Equal(t, code, collection.Error.Code)
 		}
 		require.NotContains(t, collection.Error.Message, "private-value")
-	}
-}
-
-func TestSVGCollectorDistinguishesMissingProducerFromPendingTimeout(t *testing.T) {
-	for _, tc := range []struct{ status, code string }{{"idle", "CAPTURE_PRODUCER_MISSING"}, {"pending", "CAPTURE_TIMEOUT"}} {
-		ctx, cancel := context.WithCancel(t.Context())
-		calls := 0
-		read := func(context.Context) (svgScriptResult, error) {
-			calls++
-			cancel()
-			return svgScriptResult{Status: tc.status}, nil
-		}
-		// Отмена клиентом — не доменная ошибка об отсутствии producer.
-		_, err := collectSVG(ctx, Request{}, 1024, read)
-		require.ErrorIs(t, err, context.Canceled)
-		require.Equal(t, 1, calls)
-		require.Equal(t, tc.code, svgWaitError(tc.status).Error.Code)
-	}
-}
-
-func TestSVGReadDeadlineUsesLastObservedProducerState(t *testing.T) {
-	for _, tc := range []struct{ status, code string }{{"idle", "CAPTURE_PRODUCER_MISSING"}, {"pending", "CAPTURE_TIMEOUT"}, {"", "CAPTURE_TIMEOUT"}} {
-		ctx, cancel := context.WithTimeout(t.Context(), 75*time.Millisecond)
-		defer cancel()
-		calls := 0
-		collection, err := collectSVG(ctx, Request{}, 1024, func(ctx context.Context) (svgScriptResult, error) {
-			calls++
-			if calls == 1 && tc.status != "" {
-				return svgScriptResult{Status: tc.status}, nil
-			}
-			<-ctx.Done()
-			return svgScriptResult{}, ctx.Err()
-		})
-		require.NoError(t, err)
-		require.Equal(t, tc.code, collection.Error.Code)
 	}
 }

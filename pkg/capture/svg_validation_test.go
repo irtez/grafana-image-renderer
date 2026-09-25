@@ -3,11 +3,12 @@ package capture
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func svgValidationFixture(t *testing.T, name string) json.RawMessage {

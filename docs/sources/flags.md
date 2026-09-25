@@ -110,6 +110,18 @@ This is a verbatim copy of the output of the `grafana-image-renderer server --he
     Sets the default User-Agent header for browser requests. If not set, Chromium's default will be used instead. [config: browser.user-agent]
 --browser.ws-url-read-timeout=<duration> [default: 0s] [${BROWSER_WS_URL_READ_TIMEOUT}]
     The timeout for reading the WebSocket URL when connecting to the browser. If <= 0, uses chromedp default (20s). [config: browser.ws-url-read-timeout]
+--capture.max-json-bytes=<int> [default: 1048576] [${CAPTURE_MAX_JSON_BYTES}]
+    Maximum serialized TableNG JSON body. [config: capture.max-json-bytes]
+--capture.semantic-enabled [default: false] [${CAPTURE_SEMANTIC_ENABLED}]
+    Enable opt-in semantic panel capture. [config: capture.semantic-enabled]
+--capture.svg-max-json-bytes=<int> [default: 16777216] [${CAPTURE_SVG_MAX_JSON_BYTES}]
+    Maximum UTF-8 bytes of the full SVG batch envelope. [config: capture.svg-max-json-bytes]
+--capture.svg-max-panel-bytes=<int> [default: 4194304] [${CAPTURE_SVG_MAX_PANEL_BYTES}]
+    Maximum UTF-8 bytes of one complete SVG snapshot. [config: capture.svg-max-panel-bytes]
+--capture.svg-max-panels=<int> [default: 16] [${CAPTURE_SVG_MAX_PANELS}]
+    Maximum requested SVG panels per capture. [config: capture.svg-max-panels]
+--capture.timeout=<duration> [default: 5s] [${CAPTURE_TIMEOUT}]
+    Capture time budget (SVG v2 includes navigation). [config: capture.timeout]
 --help / -h
     show help
 --log.format=<string> [default: "text"] [${LOG_FORMAT}]

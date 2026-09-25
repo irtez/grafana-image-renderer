@@ -12,6 +12,14 @@ go test -race ./pkg/capture ./pkg/service ./pkg/api
 
 Node.js is required for `TestSVGScriptRuntime`: it executes the embedded receiver and reader in isolated JavaScript contexts. Without Node, that test explicitly skips; a green Go result alone then does not verify the JavaScript scenarios. `-short` does not run the upstream Docker acceptance suite.
 
+Run the real Chromium lifecycle/transport check separately:
+
+```sh
+SVG_CAPTURE_BROWSER=/path/to/chromium go test ./pkg/capture -run TestSVGBrowserCapture -count=1
+```
+
+It covers delayed/pending sibling panels, unmount retention, generation invalidation and changed context through the actual embedded scripts and Go validator. It does not replace a Grafana-ingress check.
+
 ## Routing and lifecycle
 
 ### SVG capture v2
@@ -39,8 +47,23 @@ Node.js is required for `TestSVGScriptRuntime`: it executes the embedded receive
 | Invalid, incomplete or duplicate marker; disabled feature; unsupported kind | Reject the request, never silently return PNG instead of JSON. | `marker_test.go`, semantic route tests in `pkg/api` |
 | Collector with optional bootstrap | Receive the matched request and byte limit before navigation. Bootstrap failure prevents navigation. Existing collectors need not implement it. | `initialization_test.go`, `pre_navigation_test.go` |
 | Producer-owned readiness | SVG may report a result or failure without Grafana's image completion signal. Other collectors retain the old wait. | `TestProducerReadinessDoesNotWaitForImageBinding` |
-| Idle / pending at deadline | Idle means `CAPTURE_PRODUCER_MISSING`; pending or not-yet-observed state means `CAPTURE_TIMEOUT`, including a deadline during CDP read. Client cancellation is not a missing producer. | `TestSVGCollectorDistinguishesMissingProducerFromPendingTimeout`, `TestSVGReadDeadlineUsesLastObservedProducerState` |
+| Idle / pending at deadline | Idle means `CAPTURE_PRODUCER_MISSING`; pending or not-yet-observed state means `CAPTURE_TIMEOUT`, including a deadline during CDP read. Client cancellation is not a missing producer. | `TestSVGBatchDeadlineDistinguishesMissingPendingAndInactive`, `TestSVGBatchDoesNotConvertClientCancellationToSuccess` |
 | Transport error text and metrics | Unknown errors become bounded safe messages. Producer-reported timeout increments the `timeout` outcome, not `domain_error`. | `registry_test.go`, `TestSVGCollectorAllowsOnlySafeErrorCodes` |
+
+## Dashboard collection
+
+| Case | Expected behavior | Automated coverage |
+|---|---|---|
+| Rows, tabs and lazy panels | Activate exact selected ancestors, scroll panel ID, disable refresh only in the temporary page; no title matching or dashboard save. | `TestSVGLayoutDriver` |
+| Missing, wrong type, repeat or unknown layout | Explicit per-panel error; never select the first repeated instance. | `TestSVGLayoutDriver` |
+| Completed panel unmounts | Retain its request-local snapshot and requested order while collecting another tab. | `TestSVGBatchRetainsSnapshotBeforeUnmountAndKeepsRequestedOrder` |
+| Ready sibling and pending panel | Deadline preserves ready result, pending gets timeout; no full timeout per panel. | `TestSVGBatchDeadlinePreservesReadySibling` |
+| New generation after success | Invalidate old payload before pending/timeout, never return stale success. | `TestSVGBatchNewRunInvalidatesRetainedSnapshot` |
+| Changed variables/time/dashboard | Fail entire inconsistent batch; no cross-context payloads. | `TestSVGBatchContextChangeRejectsMixedResults`, `TestSVGLayoutDriver` |
+| Shared deadline and cancellation | Navigation consumes the same budget, with reply reserve. Client cancellation propagates as cancellation. | `svg_session_test.go` |
+| Separate v2 limits/output | TableNG byte limit does not affect SVG; solo and batch use the same ordered envelope. | `TestSVGSessionReturnsV2AndDoesNotUseTableByteLimit` |
+| Batch HTTP route | One browser call; preserve repeated variables and relative time; remove markers/refresh. | `TestV2BatchUsesCapturePrinterAndPreservesNavigationInputs` |
+| Cache stamp transfer | Go emits the exact keys used by the browser to omit unchanged payloads. | `TestSVGBatchCacheStampMatchesBrowserKeys` |
 
 ## Browser receiver and frame reader
 
@@ -68,15 +91,10 @@ The following rows run through `TestSVGScriptRuntime`; individual scenarios live
 
 | Case | Expected behavior | Automated coverage |
 |---|---|---|
-| Canonical schema and complete examples | Pin the schema fingerprint. Accept full scalar/table and invalid-configuration snapshots. | `TestSVGSchemaFingerprint`, `TestValidateSVGSnapshotAcceptsCompleteExamplesAndPanelOverrides` |
-| Wrong structure / extra fields / missing required data | Reject the entire payload; do not repair or silently ignore fields. | `TestValidateSVGSnapshotRejectsSchemaViolations` |
-| Producer, version, panel, generation and effective time | Must match the active receiver identity and run. Requested time may differ because of panel overrides. | `TestValidateSVGSnapshotMatchesReceiverIdentityAndRun` |
-| IDs, indices, references and winners | Reject duplicates, dangling references and inconsistent winner/metric/row references. Do not recompute the winning color or threshold. | `TestValidateSVGSnapshotRejectsBrokenReferencesAndStates`, `TestValidateSVGSnapshotRejectsDuplicateIDs`, `TestValidateSVGSnapshotChecksThresholdInputs` |
-| No-data, partial and invalid-configuration outcomes | Preserve the producer's declared state and diagnostics; these are not automatically transport errors. | `TestValidateSVGSnapshotAcceptsPartialStatesWithoutRecomputation` |
-| Diagram not rendered | Validate declared diagram facts and references without inventing geometry or requiring a rendered SVG in grid mode. | `TestValidateSVGSnapshotChecksUnrenderedDiagramFacts` |
-| Raw values and concurrency | Preserve numbers, strings, nulls, table cells, authored attributes and array order through the envelope; concurrent validation does not mutate shared input. | `TestValidateSVGSnapshotPreservesJSONValuesThroughEnvelope`, `TestValidateSVGSnapshotConcurrentCallsPreservePayload` |
-| Malformed JSON, invalid UTF-8, excessive nesting/work/numeric tokens | Reject before unbounded schema work; do not return fragments. | `TestValidateSVGSnapshotRejectsInvalidJSONAndBoundedWork`, `TestValidateSVGSnapshotRejectsNonUTF8AndUnboundedNumericTokens` |
-| SVG byte counter, terminal state and final envelope | Reject inconsistent state/counters; keep the complete snapshot or return overflow, never trim SVG arrays. | `svg_test.go`, `TestMarshalCollectionUsesGenericOverflowForNonTrimmablePayload` |
+| Compact payload, schema and observed panel time | Validate v2 schema, identity and references; preserve producer values, including different panel overrides. | `svg_validation_test.go` |
+| No-data/configuration diagnostics | Preserve producer facts; collection success does not imply a healthy service. | `TestValidateV2SnapshotPreservesProducerPayload` |
+| Copy/state and byte counters | Terminal snapshot must match identity, run and exact UTF-8 count; no SVG array truncation. | `svg_test.go`, `batch_contract_test.go` |
+| Concurrent validators | Share compiled schema without mutating payload or request identity. | `TestValidateV2SnapshotConcurrentCalls` |
 | TableNG byte limit | Keep the existing whole-row prefix contract; an oversized first row produces `TABLE_ROW_TOO_LARGE`. SVG tables do not use this truncation policy. | `table_test.go`, `contract_test.go` |
 
 ## Browser / HTTP release checks
@@ -85,7 +103,7 @@ These checks complement unit tests. Run them on the target Grafana and renderer 
 
 | Scenario | Required observation |
 |---|---|
-| Authenticated Grafana ingress | Normal SVG, table metric, grid, invalid YAML and missing input return a complete valid envelope; verify body independently of the outer MIME type. |
+| Authenticated Grafana ingress | SVG, table metric, invalid YAML and missing input return validated snapshots; plugin grid mode returns an explicit unsupported error; verify body independently of the outer MIME type. |
 | Active frontend sandbox | Prove that the producer runs in the sandbox, then repeat SVG/table capture. Merely setting the sandbox configuration is insufficient. |
 | Controlled producer and raw transport | Compare the complete returned payload against the published snapshot, including Unicode and observed time different from the requested range. |
 | Failure before image readiness; pending; absent producer | Return the declared safe error, timeout, or missing-producer error instead of an image-readiness timeout or PNG fallback. |
