@@ -1,0 +1,566 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:svgmodifier:snapshot:v2",
+  "title": "SvgModifierSnapshotV2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schemaVersion",
+    "producer",
+    "panel",
+    "observed",
+    "evaluationStatus",
+    "configurationStatus",
+    "objects",
+    "indicators",
+    "metrics",
+    "rules",
+    "expressions",
+    "links",
+    "diagnostics"
+  ],
+  "properties": {
+    "kind": { "const": "svgmodifier" },
+    "schemaVersion": { "const": 2 },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": { "id": { "const": "svgmodifier-panel" }, "version": { "type": "string" } }
+    },
+    "panel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "mode", "title"],
+      "properties": {
+        "id": { "$ref": "#/definitions/index" },
+        "mode": { "enum": ["svg", "grid", "table"] },
+        "title": { "type": ["string", "null"] }
+      }
+    },
+    "observed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generation", "dataState", "effectiveFromMs", "effectiveToMs", "evaluatedAtMs"],
+      "properties": {
+        "generation": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "dataState": { "enum": ["Done", "Error"] },
+        "effectiveFromMs": { "$ref": "#/definitions/time" },
+        "effectiveToMs": { "$ref": "#/definitions/time" },
+        "evaluatedAtMs": { "$ref": "#/definitions/time" }
+      }
+    },
+    "evaluationStatus": { "enum": ["evaluated", "invalid_configuration", "failed"] },
+    "configurationStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["yaml", "svg"],
+      "properties": {
+        "yaml": { "enum": ["ready", "empty", "invalid"] },
+        "svg": { "enum": ["ready", "empty", "invalid", "not_evaluated"] }
+      }
+    },
+    "objects": { "type": "array", "items": { "$ref": "#/definitions/object" } },
+    "indicators": { "type": "array", "items": { "$ref": "#/definitions/indicator" } },
+    "metrics": { "type": "array", "items": { "$ref": "#/definitions/metric" } },
+    "rules": { "type": "array", "items": { "$ref": "#/definitions/rule" } },
+    "expressions": { "type": "array", "items": { "$ref": "#/definitions/expression" } },
+    "links": { "type": "array", "items": { "$ref": "#/definitions/link" } },
+    "diagnostics": { "type": "array", "items": { "$ref": "#/definitions/diagnostic" } }
+  },
+  "definitions": {
+    "id": { "type": "string", "minLength": 1 },
+    "ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/definitions/id" } },
+    "index": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+    "time": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+    "json": {
+      "title": "JsonValueV2",
+      "anyOf": [
+        { "type": "string" },
+        { "type": "number" },
+        { "type": "boolean" },
+        { "type": "null" },
+        { "type": "array", "items": { "$ref": "#/definitions/json" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/definitions/json" } }
+      ]
+    },
+    "sourceLocation": {
+      "title": "SourceLocationV2",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "page": { "type": "string" },
+        "pageIndex": { "$ref": "#/definitions/index" },
+        "path": { "type": "string" },
+        "line": { "$ref": "#/definitions/index" },
+        "column": { "$ref": "#/definitions/index" },
+        "refId": { "type": "string" },
+        "legend": { "type": "string" },
+        "expressionRefId": { "type": "string" },
+        "metricsIndex": { "$ref": "#/definitions/index" },
+        "queryIndex": { "$ref": "#/definitions/index" },
+        "thresholdIndex": { "$ref": "#/definitions/index" },
+        "rowIndex": { "$ref": "#/definitions/index" },
+        "columnIndex": { "$ref": "#/definitions/index" }
+      }
+    },
+    "paint": {
+      "title": "PaintV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "css", "rgba"],
+      "properties": {
+        "kind": { "enum": ["solid", "none", "other"] },
+        "css": { "type": "string" },
+        "rgba": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": [
+                { "type": "number", "minimum": 0, "maximum": 255 },
+                { "type": "number", "minimum": 0, "maximum": 255 },
+                { "type": "number", "minimum": 0, "maximum": 255 },
+                { "type": "number", "minimum": 0, "maximum": 1 }
+              ],
+              "additionalItems": false
+            }
+          ]
+        }
+      }
+    },
+    "appearance": {
+      "title": "AppearanceV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "part",
+        "fill",
+        "stroke",
+        "textColor",
+        "opacity",
+        "effectiveOpacity",
+        "fillOpacity",
+        "strokeOpacity"
+      ],
+      "properties": {
+        "part": { "type": "string" },
+        "fill": { "anyOf": [{ "$ref": "#/definitions/paint" }, { "type": "null" }] },
+        "stroke": { "anyOf": [{ "$ref": "#/definitions/paint" }, { "type": "null" }] },
+        "textColor": { "anyOf": [{ "$ref": "#/definitions/paint" }, { "type": "null" }] },
+        "opacity": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "effectiveOpacity": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "fillOpacity": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "strokeOpacity": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+      }
+    },
+    "navigation": {
+      "title": "NavigationV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["linkId", "use"],
+      "properties": {
+        "linkId": { "$ref": "#/definitions/id" },
+        "use": { "enum": ["declared", "prepared", "applied"] },
+        "ruleId": { "$ref": "#/definitions/id" }
+      }
+    },
+    "object": {
+      "title": "MapObjectV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "name", "indicatorIds", "parentId", "parentRelation", "navigation"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "kind": { "enum": ["object", "group", "annotation"] },
+        "name": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["text", "source"],
+              "properties": { "text": { "type": "string", "minLength": 1 }, "source": { "enum": ["visible_text"] } }
+            }
+          ]
+        },
+        "indicatorIds": { "$ref": "#/definitions/ids" },
+        "parentId": { "type": ["string", "null"] },
+        "parentRelation": { "enum": ["direct", "inferred", null] },
+        "navigation": { "type": "array", "items": { "$ref": "#/definitions/navigation" } }
+      }
+    },
+    "ruleResult": {
+      "title": "RuleResultV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ruleId", "metricIds", "winnerMetricId", "winnerRowIndex"],
+      "properties": {
+        "ruleId": { "$ref": "#/definitions/id" },
+        "metricIds": { "$ref": "#/definitions/ids" },
+        "winnerMetricId": { "type": ["string", "null"] },
+        "winnerRowIndex": { "anyOf": [{ "$ref": "#/definitions/index" }, { "type": "null" }] }
+      }
+    },
+    "tooltip": {
+      "title": "TooltipV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "metricIds", "tables", "textAbove", "textBelow", "diagnosticIds", "noData"],
+      "properties": {
+        "status": { "enum": ["available", "disabled", "empty", "not_rendered"] },
+        "metricIds": { "type": "array", "items": { "$ref": "#/definitions/id" } },
+        "tables": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["metricId", "rowIndices"],
+            "properties": {
+              "metricId": { "$ref": "#/definitions/id" },
+              "rowIndices": { "type": "array", "items": { "$ref": "#/definitions/index" } },
+              "title": { "type": "string" }
+            }
+          }
+        },
+        "textAbove": { "type": "array", "items": { "type": "string" } },
+        "textBelow": { "type": "array", "items": { "type": "string" } },
+        "diagnosticIds": { "$ref": "#/definitions/ids" },
+        "noData": { "type": "boolean" }
+      }
+    },
+    "indicator": {
+      "title": "IndicatorV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "objectIds",
+        "binding",
+        "visible",
+        "appearance",
+        "metricIds",
+        "ruleResults",
+        "state",
+        "tooltip",
+        "navigation",
+        "diagnosticIds"
+      ],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "objectIds": { "$ref": "#/definitions/ids" },
+        "binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "basis", "candidateObjectIds"],
+          "properties": {
+            "status": { "enum": ["direct", "inferred", "ambiguous", "unresolved"] },
+            "basis": { "enum": ["own_text", "containment", "row_alignment", "none"] },
+            "candidateObjectIds": { "$ref": "#/definitions/ids" }
+          }
+        },
+        "visible": { "type": ["boolean", "null"] },
+        "appearance": { "type": "array", "items": { "$ref": "#/definitions/appearance" } },
+        "metricIds": { "$ref": "#/definitions/ids" },
+        "ruleResults": { "type": "array", "items": { "$ref": "#/definitions/ruleResult" } },
+        "state": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["noData", "selectedRuleId", "winnerMetricId", "winnerRowIndex", "color", "level"],
+          "properties": {
+            "noData": { "type": "boolean" },
+            "selectedRuleId": { "type": ["string", "null"] },
+            "winnerMetricId": { "type": ["string", "null"] },
+            "winnerRowIndex": { "anyOf": [{ "$ref": "#/definitions/index" }, { "type": "null" }] },
+            "color": { "anyOf": [{ "$ref": "#/definitions/paint" }, { "type": "null" }] },
+            "level": { "type": ["number", "null"] }
+          }
+        },
+        "tooltip": { "$ref": "#/definitions/tooltip" },
+        "navigation": { "type": "array", "items": { "$ref": "#/definitions/navigation" } },
+        "diagnosticIds": { "$ref": "#/definitions/ids" }
+      }
+    },
+    "queryHint": {
+      "title": "QueryHintV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metricsIndex", "queryIndex"],
+      "properties": {
+        "metricsIndex": { "$ref": "#/definitions/index" },
+        "queryIndex": { "$ref": "#/definitions/index" },
+        "refId": { "type": "string" },
+        "legend": { "type": "string" },
+        "label": { "type": "string" },
+        "title": { "type": "string" },
+        "sum": { "type": "string" }
+      }
+    },
+    "rule": {
+      "title": "RuleV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "selectors", "indicatorIds", "queries", "navigation", "diagnosticIds"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "source": { "$ref": "#/definitions/sourceLocation" },
+        "selectors": { "type": "array", "items": { "type": "string" } },
+        "title": { "type": "string" },
+        "indicatorIds": { "$ref": "#/definitions/ids" },
+        "queries": { "type": "array", "items": { "$ref": "#/definitions/queryHint" } },
+        "navigation": { "type": "array", "items": { "$ref": "#/definitions/navigation" } },
+        "diagnosticIds": { "$ref": "#/definitions/ids" }
+      }
+    },
+    "input": {
+      "title": "ExpressionInputV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["token", "refId", "field", "calculation", "value", "availability", "diagnosticIds"],
+      "properties": {
+        "token": { "type": "string" },
+        "refId": { "type": "string" },
+        "field": { "type": ["string", "null"] },
+        "calculation": { "type": "string" },
+        "value": { "type": ["number", "null"] },
+        "availability": { "enum": ["available", "unavailable"] },
+        "diagnosticIds": { "$ref": "#/definitions/ids" }
+      }
+    },
+    "threshold": {
+      "title": "AppliedThresholdV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "value", "operator", "level", "color", "condition", "inputs", "diagnosticIds"],
+      "properties": {
+        "index": { "$ref": "#/definitions/index" },
+        "value": { "$ref": "#/definitions/json" },
+        "operator": { "type": "string" },
+        "level": { "type": ["number", "null"] },
+        "color": { "anyOf": [{ "$ref": "#/definitions/paint" }, { "type": "null" }] },
+        "condition": { "type": ["string", "null"] },
+        "inputs": { "type": "array", "items": { "$ref": "#/definitions/input" } },
+        "diagnosticIds": { "$ref": "#/definitions/ids" }
+      }
+    },
+    "decision": {
+      "title": "DecisionV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "displayValue", "level", "color", "appliedThreshold"],
+      "properties": {
+        "value": { "type": "number" },
+        "displayValue": { "type": ["string", "null"] },
+        "level": { "type": ["number", "null"] },
+        "color": { "anyOf": [{ "$ref": "#/definitions/paint" }, { "type": "null" }] },
+        "appliedThreshold": { "anyOf": [{ "$ref": "#/definitions/threshold" }, { "type": "null" }] }
+      }
+    },
+    "source": {
+      "title": "MetricSourceV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "refId",
+        "legend",
+        "fieldName",
+        "frameName",
+        "frameIndex",
+        "fieldIndex",
+        "labels",
+        "dataSource",
+        "valueCount",
+        "fromMs",
+        "toMs",
+        "calculation",
+        "value",
+        "diagnosticIds"
+      ],
+      "properties": {
+        "refId": { "type": ["string", "null"] },
+        "legend": { "type": ["string", "null"] },
+        "fieldName": { "type": ["string", "null"] },
+        "frameName": { "type": ["string", "null"] },
+        "frameIndex": { "anyOf": [{ "$ref": "#/definitions/index" }, { "type": "null" }] },
+        "fieldIndex": { "anyOf": [{ "$ref": "#/definitions/index" }, { "type": "null" }] },
+        "labels": { "type": ["object", "null"], "additionalProperties": { "type": "string" } },
+        "dataSource": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["uid", "type", "name"],
+          "properties": {
+            "uid": { "type": ["string", "null"] },
+            "type": { "type": ["string", "null"] },
+            "name": { "type": ["string", "null"] }
+          }
+        },
+        "valueCount": { "$ref": "#/definitions/index" },
+        "fromMs": { "anyOf": [{ "$ref": "#/definitions/time" }, { "type": "null" }] },
+        "toMs": { "anyOf": [{ "$ref": "#/definitions/time" }, { "type": "null" }] },
+        "calculation": { "type": ["string", "null"] },
+        "value": { "type": ["number", "null"] },
+        "diagnosticIds": { "$ref": "#/definitions/ids" }
+      }
+    },
+    "table": {
+      "title": "TableV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["columns", "headers", "rows", "thresholdColumnIndex", "winningRowIndex", "rowFilterStatus"],
+      "properties": {
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "type"],
+            "properties": { "name": { "type": "string" }, "type": { "type": ["string", "null"] } }
+          }
+        },
+        "headers": { "type": "array", "items": { "$ref": "#/definitions/json" } },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sourceIndex", "values", "displayValues", "decision", "cellIssues"],
+            "properties": {
+              "sourceIndex": { "$ref": "#/definitions/index" },
+              "values": { "type": "array", "items": { "$ref": "#/definitions/json" } },
+              "displayValues": { "type": "array", "items": { "type": ["string", "null"] } },
+              "decision": { "anyOf": [{ "$ref": "#/definitions/decision" }, { "type": "null" }] },
+              "cellIssues": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["columnIndex", "diagnosticIds"],
+                  "properties": {
+                    "columnIndex": { "$ref": "#/definitions/index" },
+                    "diagnosticIds": { "$ref": "#/definitions/ids" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "thresholdColumnIndex": { "anyOf": [{ "$ref": "#/definitions/index" }, { "type": "null" }] },
+        "winningRowIndex": { "anyOf": [{ "$ref": "#/definitions/index" }, { "type": "null" }] },
+        "rowFilterStatus": { "enum": ["applied", "not_evaluated", "incomplete"] }
+      }
+    },
+    "metric": {
+      "title": "MetricV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "ruleId",
+        "query",
+        "availability",
+        "kind",
+        "sources",
+        "scalar",
+        "table",
+        "indicatorIds",
+        "diagnosticIds"
+      ],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "ruleId": { "$ref": "#/definitions/id" },
+        "query": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["metricsIndex", "queryIndex", "counter", "selection"],
+          "properties": {
+            "metricsIndex": { "$ref": "#/definitions/index" },
+            "queryIndex": { "$ref": "#/definitions/index" },
+            "counter": { "type": "integer", "minimum": 1 },
+            "selection": { "enum": ["refid", "legend", "refid_and_legend", "none"] },
+            "refId": { "type": "string" },
+            "legend": { "type": "string" }
+          }
+        },
+        "label": { "type": "string" },
+        "title": { "type": "string" },
+        "calculation": { "type": "string" },
+        "unit": { "type": "string" },
+        "decimal": { "type": "number" },
+        "availability": { "enum": ["available", "unavailable"] },
+        "kind": { "enum": ["scalar", "table", "unresolved"] },
+        "sources": { "type": "array", "items": { "$ref": "#/definitions/source" } },
+        "scalar": { "anyOf": [{ "$ref": "#/definitions/decision" }, { "type": "null" }] },
+        "table": { "anyOf": [{ "$ref": "#/definitions/table" }, { "type": "null" }] },
+        "indicatorIds": { "$ref": "#/definitions/ids" },
+        "diagnosticIds": { "$ref": "#/definitions/ids" }
+      }
+    },
+    "expression": {
+      "title": "ExpressionV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "refId", "formula", "availability", "value", "inputs", "diagnosticIds"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "refId": { "type": "string" },
+        "formula": { "type": "string" },
+        "availability": { "enum": ["available", "unavailable"] },
+        "value": { "type": ["number", "null"] },
+        "inputs": { "type": "array", "items": { "$ref": "#/definitions/input" } },
+        "diagnosticIds": { "$ref": "#/definitions/ids" }
+      }
+    },
+    "destination": {
+      "title": "CapturedLinkDestination",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dashboardUid", "panelId", "path", "query"],
+      "properties": {
+        "dashboardUid": { "type": "string", "minLength": 1 },
+        "panelId": { "anyOf": [{ "$ref": "#/definitions/index" }, { "type": "null" }] },
+        "path": { "type": "string" },
+        "query": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": [{ "type": "string" }, { "type": "string" }],
+            "additionalItems": false
+          }
+        }
+      }
+    },
+    "link": {
+      "title": "LinkV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "url", "destination"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "url": { "type": "string" },
+        "destination": { "anyOf": [{ "$ref": "#/definitions/destination" }, { "type": "null" }] }
+      }
+    },
+    "diagnostic": {
+      "title": "DiagnosticV2",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "code", "severity", "message", "source", "indicatorIds", "ruleIds", "metricIds", "causeIds"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "code": { "type": "string" },
+        "severity": { "enum": ["error", "warning"] },
+        "message": { "type": "string" },
+        "source": { "$ref": "#/definitions/sourceLocation" },
+        "indicatorIds": { "$ref": "#/definitions/ids" },
+        "ruleIds": { "$ref": "#/definitions/ids" },
+        "metricIds": { "$ref": "#/definitions/ids" },
+        "causeIds": { "$ref": "#/definitions/ids" }
+      }
+    }
+  }
+}

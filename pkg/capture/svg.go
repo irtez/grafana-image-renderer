@@ -131,6 +131,9 @@ func svgCollectionFromScript(state svgScriptResult, request Request, maxBytes in
 		}
 		raw := json.RawMessage(*state.SnapshotJSON)
 		if err := validateSVGSnapshot(raw, request, *state.Identity, *state.Run); err != nil {
+			if errors.Is(err, errSVGValidationLimit) {
+				return svgError("CAPTURE_VALIDATION_LIMIT"), true
+			}
 			return invalid()
 		}
 		return Collection{Payload: raw}, true
@@ -141,6 +144,7 @@ func svgCollectionFromScript(state svgScriptResult, request Request, maxBytes in
 
 func svgError(code string) Collection {
 	messages := map[string]string{
+		"CAPTURE_VALIDATION_LIMIT":       "SVG snapshot exceeds validation safety limits",
 		"CAPTURE_PRODUCER_MISSING":       "no compatible SVG capture producer is available",
 		"CAPTURE_PROTOCOL_UNSUPPORTED":   "SVG capture protocol is not supported",
 		"CAPTURE_INSTANCE_AMBIGUOUS":     "more than one matching SVG panel instance is active",

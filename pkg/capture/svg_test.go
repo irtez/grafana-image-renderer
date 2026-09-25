@@ -12,10 +12,10 @@ import (
 
 func svgTransportFixture(t *testing.T) (svgScriptResult, Request) {
 	t.Helper()
-	raw, err := os.ReadFile("testdata/svg-snapshot-v1.json")
+	raw, err := os.ReadFile("testdata/svg-snapshot-v2.json")
 	require.NoError(t, err)
 	identity := SVGIdentity{ProducerID: "svgmodifier-panel", ProducerVersion: "1.4.0", PanelID: 7, InstanceID: "one"}
-	run := SVGRun{Generation: 3, EffectiveFromMs: 1700000000000, EffectiveToMs: 1700003600000}
+	run := SVGRun{Generation: 1, EffectiveFromMs: 0, EffectiveToMs: 1000}
 	body := string(raw)
 	return svgScriptResult{Status: "terminal-ok", Identity: &identity, Run: &run, SnapshotJSON: &body, PayloadBytes: len(raw)},
 		Request{PanelID: 7, Kind: "svgmodifier"}

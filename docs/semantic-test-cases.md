@@ -25,6 +25,11 @@ Node.js is required for `TestSVGScriptRuntime`: it executes the embedded receive
 | Oversized batch | Top-level overflow, every requested ID retained as an error, no arbitrary payload prefix | `TestV2EnvelopeNeverTruncatesAnOversizedBatch` |
 | Missing/duplicate/conflicting result entries | Reject malformed internal envelope instead of publishing success | `TestV2EnvelopeRejectsMissingDuplicateOrConflictingEntries` |
 | SVG defaults and environment limits | Separate panel/count/total limits do not change TableNG byte default | `pkg/config/capture_test.go` |
+| Compact producer v2 and panel overrides | Validate actual identity/run without substituting the requested time window; return original numeric tokens | `TestValidateV2SnapshotPreservesProducerPayload`, `svg_test.go` |
+| Object/rule/metric/diagnostic links, winners, cyclic parents/causes | Reject unknown, conflicting or dangling references without panic | `TestValidateV2SnapshotRejectsSchemaReferencesAndStates` |
+| Table source rows and displayed order | Validate row widths, winner/cell issue indices and tooltip references independently | `TestValidateV2TableKeepsSourceIndicesAndTooltipOrder` |
+| JSON preflight | Reject duplicate keys, trailing JSON, invalid UTF-8, excessive depth/numeric tokens before schema allocation; safety limit has a distinct code | `TestValidateV2SnapshotRejectsMalformedJSONAndBoundedWork`, `TestValidateV2SafetyLimitHasDistinctError` |
+| Large valid compact payload | No obsolete 100k-values ceiling below the configured byte budget | `TestValidateV2AcceptsLargeJSONWithinByteBudget` |
 
 | Case | Expected behavior | Automated coverage |
 |---|---|---|

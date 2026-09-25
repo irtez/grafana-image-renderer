@@ -4,7 +4,9 @@ import (
 	"bytes"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"math"
 	"strconv"
 	"strings"
@@ -16,7 +18,7 @@ import (
 
 // Схема компилируется только при первом SVG capture; обычный render её не загружает.
 //
-//go:embed svgmodifier-snapshot-v1.schema.json
+//go:embed svgmodifier-snapshot-v2.schema.json
 var svgSnapshotSchema []byte
 
 var compiledSVGSchema = sync.OnceValues(func() (*jsonschema.Schema, error) {
@@ -25,7 +27,7 @@ var compiledSVGSchema = sync.OnceValues(func() (*jsonschema.Schema, error) {
 		return nil, err
 	}
 	compiler := jsonschema.NewCompiler()
-	const resource = "urn:svgmodifier:snapshot:v1"
+	const resource = "urn:svgmodifier:snapshot:v2"
 	if err := compiler.AddResource(resource, document); err != nil {
 		return nil, err
 	}
@@ -33,24 +35,28 @@ var compiledSVGSchema = sync.OnceValues(func() (*jsonschema.Schema, error) {
 })
 
 const (
-	svgMaxJSONDepth  = 64
-	svgMaxJSONValues = 100000
+	svgMaxJSONDepth = 64
 	// JSON.stringify конечного JS number укладывается с большим запасом.
 	// Эти пределы также ограничивают big.Rat внутри JSON Schema validator.
 	svgMaxNumberLength = 128
 	svgMaxExponent     = 4096
 )
 
+var errSVGValidationLimit = errors.New("SVG payload exceeds validation limits")
+
 func validateSVGSnapshot(raw json.RawMessage, request Request, identity SVGIdentity, run SVGRun) error {
 	if !utf8.Valid(raw) {
 		return fmt.Errorf("invalid SVG snapshot JSON encoding")
+	}
+	if err := preflightSVGJSON(raw); err != nil {
+		return err
 	}
 	// UseNumber сохраняет исходные числовые токены; наружу передаётся сам raw.
 	value, err := jsonschema.UnmarshalJSON(bytes.NewReader(raw))
 	if err != nil {
 		return fmt.Errorf("invalid SVG snapshot JSON")
 	}
-	remaining := svgMaxJSONValues
+	remaining := len(raw)
 	if !svgBoundedJSON(value, 0, &remaining) {
 		return fmt.Errorf("SVG snapshot JSON exceeds validation limits or contains a non-finite number")
 	}
@@ -60,7 +66,7 @@ func validateSVGSnapshot(raw json.RawMessage, request Request, identity SVGIdent
 	}
 	if err := schema.Validate(value); err != nil {
 		// Ошибка библиотеки может содержать исходные строки: не возвращаем её клиенту.
-		return fmt.Errorf("SVG snapshot does not match schema v1")
+		return fmt.Errorf("SVG snapshot does not match schema v2")
 	}
 
 	snapshot := value.(map[string]any)
@@ -79,6 +85,68 @@ func validateSVGSnapshot(raw json.RawMessage, request Request, identity SVGIdent
 	}
 	// Фактическое окно принадлежит producer: panel overrides могут менять render range.
 	return validateSVGReferences(snapshot)
+}
+
+// Bound depth/numbers and reject duplicate keys before allocating the schema model.
+func preflightSVGJSON(raw []byte) error {
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.UseNumber()
+	remaining := len(raw)
+	var walk func(int) error
+	walk = func(depth int) error {
+		remaining--
+		if depth > svgMaxJSONDepth || remaining < 0 {
+			return errSVGValidationLimit
+		}
+		token, err := d.Token()
+		if err != nil {
+			return fmt.Errorf("invalid SVG JSON")
+		}
+		switch value := token.(type) {
+		case json.Delim:
+			if value != '{' && value != '[' {
+				return fmt.Errorf("invalid SVG JSON")
+			}
+			keys := map[string]bool{}
+			for d.More() {
+				if value == '{' {
+					key, err := d.Token()
+					if err != nil {
+						return fmt.Errorf("invalid SVG JSON")
+					}
+					s, ok := key.(string)
+					if !ok || keys[s] {
+						return fmt.Errorf("duplicate SVG JSON key")
+					}
+					keys[s] = true
+				}
+				if err := walk(depth + 1); err != nil {
+					return err
+				}
+			}
+			if _, err := d.Token(); err != nil {
+				return fmt.Errorf("invalid SVG JSON")
+			}
+		case json.Number:
+			if len(value) > svgMaxNumberLength {
+				return errSVGValidationLimit
+			}
+			if index := strings.IndexAny(string(value), "eE"); index >= 0 {
+				exp, err := strconv.ParseInt(string(value[index+1:]), 10, 64)
+				if err != nil || exp < -svgMaxExponent || exp > svgMaxExponent {
+					return errSVGValidationLimit
+				}
+			}
+		}
+		return nil
+	}
+	if err := walk(0); err != nil {
+		return err
+	}
+	if _, err := d.Token(); err != io.EOF {
+		return fmt.Errorf("invalid SVG JSON trailing data")
+	}
+	return nil
 }
 
 func svgBoundedJSON(value any, depth int, remaining *int) bool {

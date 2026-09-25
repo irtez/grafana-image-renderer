@@ -1,0 +1,161 @@
+{
+  "kind": "svgmodifier",
+  "schemaVersion": 2,
+  "producer": { "id": "svgmodifier-panel", "version": "1.4.0" },
+  "panel": { "id": 7, "title": "Example", "mode": "svg" },
+  "observed": {
+    "generation": 1,
+    "dataState": "Done",
+    "effectiveFromMs": 0,
+    "effectiveToMs": 1000,
+    "evaluatedAtMs": 1001
+  },
+  "evaluationStatus": "evaluated",
+  "configurationStatus": { "yaml": "ready", "svg": "ready" },
+  "objects": [
+    {
+      "id": "object-a",
+      "kind": "object",
+      "name": { "text": "Service Alpha", "source": "visible_text" },
+      "indicatorIds": ["cell-a"],
+      "parentId": null,
+      "parentRelation": null,
+      "navigation": []
+    },
+    {
+      "id": "static",
+      "kind": "annotation",
+      "name": { "text": "Example group", "source": "visible_text" },
+      "indicatorIds": [],
+      "parentId": null,
+      "parentRelation": null,
+      "navigation": []
+    }
+  ],
+  "indicators": [
+    {
+      "id": "cell-a",
+      "objectIds": ["object-a"],
+      "binding": { "status": "direct", "basis": "own_text", "candidateObjectIds": [] },
+      "visible": true,
+      "appearance": [
+        {
+          "part": "rect",
+          "fill": { "kind": "solid", "css": "rgb(255, 0, 0)", "rgba": [255, 0, 0, 1] },
+          "stroke": { "kind": "none", "css": "none", "rgba": null },
+          "textColor": null,
+          "opacity": 1,
+          "effectiveOpacity": 1,
+          "fillOpacity": 1,
+          "strokeOpacity": 1
+        }
+      ],
+      "metricIds": ["metric-a", "metric-missing"],
+      "ruleResults": [
+        {
+          "ruleId": "rule-a",
+          "metricIds": ["metric-a", "metric-missing"],
+          "winnerMetricId": "metric-a",
+          "winnerRowIndex": null
+        }
+      ],
+      "state": {
+        "noData": false,
+        "selectedRuleId": "rule-a",
+        "winnerMetricId": "metric-a",
+        "winnerRowIndex": null,
+        "color": { "kind": "solid", "css": "red", "rgba": [255, 0, 0, 1] },
+        "level": 2
+      },
+      "tooltip": {
+        "status": "available",
+        "metricIds": ["metric-a"],
+        "tables": [],
+        "textAbove": [],
+        "textBelow": [],
+        "diagnosticIds": ["missing"],
+        "noData": false
+      },
+      "navigation": [{ "linkId": "link-a", "use": "applied" }],
+      "diagnosticIds": ["missing"]
+    }
+  ],
+  "metrics": [
+    {
+      "id": "metric-a",
+      "ruleId": "rule-a",
+      "query": { "metricsIndex": 0, "queryIndex": 0, "counter": 1, "refId": "A", "selection": "refid" },
+      "label": "Latency",
+      "calculation": "last",
+      "availability": "available",
+      "kind": "scalar",
+      "sources": [],
+      "scalar": {
+        "value": 12.34567,
+        "displayValue": "12.35",
+        "level": 2,
+        "color": { "kind": "solid", "css": "red", "rgba": [255, 0, 0, 1] },
+        "appliedThreshold": {
+          "index": 0,
+          "value": 10,
+          "operator": ">=",
+          "level": 2,
+          "color": { "kind": "solid", "css": "red", "rgba": [255, 0, 0, 1] },
+          "condition": null,
+          "inputs": [],
+          "diagnosticIds": []
+        }
+      },
+      "table": null,
+      "indicatorIds": ["cell-a"],
+      "diagnosticIds": []
+    },
+    {
+      "id": "metric-missing",
+      "ruleId": "rule-a",
+      "query": { "metricsIndex": 0, "queryIndex": 1, "counter": 2, "refId": "B", "selection": "refid" },
+      "availability": "unavailable",
+      "kind": "unresolved",
+      "sources": [],
+      "scalar": null,
+      "table": null,
+      "indicatorIds": ["cell-a"],
+      "diagnosticIds": ["missing"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "rule-a",
+      "source": { "page": "Example", "pageIndex": 0, "path": "changes[0]", "line": 2 },
+      "selectors": ["a"],
+      "indicatorIds": ["cell-a"],
+      "queries": [
+        { "metricsIndex": 0, "queryIndex": 0, "refId": "A" },
+        { "metricsIndex": 0, "queryIndex": 1, "refId": "B" }
+      ],
+      "navigation": [],
+      "diagnosticIds": ["missing"]
+    }
+  ],
+  "expressions": [],
+  "links": [
+    {
+      "id": "link-a",
+      "url": "/d/details/overview",
+      "destination": { "dashboardUid": "details", "panelId": null, "path": "/d/details/overview", "query": [] }
+    }
+  ],
+  "diagnostics": [
+    {
+      "id": "missing",
+      "code": "MISSING_INPUT",
+      "severity": "warning",
+      "message": "Нет данных по запросу B",
+      "source": { "refId": "B" },
+      "indicatorIds": ["cell-a"],
+      "ruleIds": ["rule-a"],
+      "metricIds": ["metric-missing"],
+      "causeIds": []
+    }
+  ]
+}
