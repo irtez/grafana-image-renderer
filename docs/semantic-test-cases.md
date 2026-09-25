@@ -64,6 +64,7 @@ It covers delayed/pending sibling panels, unmount retention, generation invalida
 | Separate v2 limits/output | TableNG byte limit does not affect SVG; solo and batch use the same ordered envelope. | `TestSVGSessionReturnsV2AndDoesNotUseTableByteLimit` |
 | Batch HTTP route | One browser call; preserve repeated variables and relative time; remove markers/refresh. | `TestV2BatchUsesCapturePrinterAndPreservesNavigationInputs` |
 | Cache stamp transfer | Go emits the exact keys used by the browser to omit unchanged payloads. | `TestSVGBatchCacheStampMatchesBrowserKeys` |
+| Initial data loading before plugin mount | Report timeout, not missing producer. A new loading state invalidates retained success even before producer begin. | `TestSVGBatchLoadingWithoutProducerIsTimeoutNotMissingPlugin`, `TestSVGLayoutDriver` |
 
 ## Browser receiver and frame reader
 

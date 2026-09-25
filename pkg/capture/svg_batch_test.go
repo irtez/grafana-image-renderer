@@ -117,6 +117,27 @@ func TestSVGBatchCacheStampMatchesBrowserKeys(t *testing.T) {
 	require.Contains(t, stamp, "payloadBytes")
 }
 
+func TestSVGBatchLoadingWithoutProducerIsTimeoutNotMissingPlugin(t *testing.T) {
+	for _, status := range []string{"idle", "terminal-ok"} {
+		ctx, cancel := context.WithTimeout(t.Context(), 70*time.Millisecond)
+		got, err := collectSVGBatch(ctx, batchRequest(), 4194304, func(context.Context, int, map[int]svgStamp) (svgBatchStep, error) {
+			state := batchFixture(t, 7)
+			if status == "idle" {
+				state = svgScriptResult{Status: status}
+			}
+			step := batchStep(svgPanelState{8, batchFixture(t, 8)}, svgPanelState{7, state})
+			step.Layout.Panels[1].DataPending = true
+			return step, nil
+		})
+		cancel()
+		require.NoError(t, err)
+		batch := got.Payload.(BatchCollection)
+		require.Equal(t, "ok", batch.Panels[0].Status)
+		require.Equal(t, "error", batch.Panels[1].Status)
+		require.Equal(t, "CAPTURE_TIMEOUT", batch.Panels[1].Error.Code)
+	}
+}
+
 func TestSVGBatchDeadlineDistinguishesMissingPendingAndInactive(t *testing.T) {
 	for _, tc := range []struct {
 		status string

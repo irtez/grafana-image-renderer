@@ -83,3 +83,11 @@ test('no scene waits; incompatible scene fails safely without echoing exception 
   f.get('__grafanaSceneContext={state:{uid:"example"}}');
   assert.equal(f.step().error.code, 'CAPTURE_LAYOUT_UNSUPPORTED');
 });
+
+test('loading data can precede the plugin mount', () => {
+  const f=fixture();
+  f.get("panels[0].state.$data={state:{data:{state:'Loading'}}}");
+  assert.equal(f.step().panels[0].dataPending,true);
+  f.get("panels[0].state.$data.state.data.state='Done'");
+  assert.equal(f.step().panels[0].dataPending,false);
+});

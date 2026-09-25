@@ -137,6 +137,9 @@
       return {
         panelId,
         status: 'ready',
+        // Grafana may not mount a plugin until its initial query finishes.
+        dataPending: !!panel.state.$data &&
+          !['Done', 'Error'].includes(panel.state.$data.state?.data?.state),
         active:
           panel.isActive !== false &&
           tabs.every((n) => n.parent.getCurrentTab() === n),

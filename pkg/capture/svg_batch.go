@@ -12,10 +12,11 @@ import (
 )
 
 type svgLayoutPanel struct {
-	PanelID int             `json:"panelId"`
-	Status  string          `json:"status"`
-	Active  bool            `json:"active"`
-	Error   *svgScriptError `json:"error,omitempty"`
+	PanelID     int             `json:"panelId"`
+	Status      string          `json:"status"`
+	Active      bool            `json:"active"`
+	DataPending bool            `json:"dataPending,omitempty"`
+	Error       *svgScriptError `json:"error,omitempty"`
 }
 type svgLayoutResult struct {
 	Status     string           `json:"status"`
@@ -113,6 +114,12 @@ func collectSVGBatch(ctx context.Context, request Request, maxBytes int, read sv
 				}
 				lastStatus[id] = state.State.Status
 				current := state.State
+				if p.DataPending && current.Status != "terminal-error" {
+					lastStatus[id] = "pending"
+					delete(results, id)
+					delete(stamps, id)
+					continue
+				}
 				if current.Unchanged {
 					previous, ok := stamps[id]
 					if !ok || current.Status != "terminal-ok" || current.SnapshotJSON != nil || current.Error != nil || !sameSVGStamp(previous, current) {
