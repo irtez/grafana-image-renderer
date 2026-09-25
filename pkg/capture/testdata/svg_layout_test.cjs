@@ -91,3 +91,12 @@ test('loading data can precede the plugin mount', () => {
   f.get("panels[0].state.$data.state.data.state='Done'");
   assert.equal(f.step().panels[0].dataPending,false);
 });
+
+test('context is observable while changed variables are still loading', () => {
+  const f=fixture(), before=f.step().contextKey;
+  f.get("root.state.$variables.state.variables[0].state.value=['changed'];root.state.$variables.state.variables[0].state.loading=true");
+  const result=f.step();
+  assert.equal(result.status,'pending');
+  assert.ok(result.contextKey);
+  assert.notEqual(result.contextKey,before);
+});

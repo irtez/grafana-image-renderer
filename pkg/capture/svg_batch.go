@@ -90,12 +90,14 @@ func collectSVGBatch(ctx context.Context, request Request, maxBytes int, read sv
 		if layout.Status == "error" && layout.Error != nil {
 			return svgError(layout.Error.Code), nil
 		}
+		// Compare even during loading: otherwise a deadline could expose cached
+		// results for the previous variables. Initial loading has no locked key.
+		if contextKey != "" && contextKey != layout.ContextKey {
+			return svgError("CAPTURE_CONTEXT_CHANGED"), nil
+		}
 		if layout.Status == "ready" {
 			if layout.ContextKey == "" || len(layout.Panels) != len(ids) || len(step.States) != len(ids) {
 				return svgError("CAPTURE_PAYLOAD_INVALID"), nil
-			}
-			if contextKey != "" && contextKey != layout.ContextKey {
-				return svgError("CAPTURE_CONTEXT_CHANGED"), nil
 			}
 			contextKey = layout.ContextKey
 			for i, id := range ids {

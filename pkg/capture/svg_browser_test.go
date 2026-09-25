@@ -30,6 +30,8 @@ func TestSVGBrowserCapture(t *testing.T) {
 		{"unmounted sibling", `setTimeout(()=>{handles[7].close();panels[0].isActive=false},100);setTimeout(()=>publish(8),180)`, "complete"},
 		{"new generation", `setTimeout(()=>handles[7].begin({...run,generation:2}),100);setTimeout(()=>publish(8),180)`, "partial"},
 		{"changed context", `setTimeout(()=>scene.state.$timeRange.state.value.to=2000,100)`, "failed"},
+		{"variable loading changes context", `setTimeout(()=>scene.state.$variables.state.variables=[{state:{name:'zone',value:'changed',loading:true}}],100)`, "failed"},
+		{"initial variable loading", `scene.state.defaultVariablesLoading=true;setTimeout(()=>{scene.state.defaultVariablesLoading=false;publish(8)},150)`, "complete"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			html := fmt.Sprintf(`<html><body><div data-viz-panel-key="panel-7"></div><div data-viz-panel-key="panel-8"></div><script>
@@ -73,7 +75,7 @@ publish(7);%s;
 				require.Equal(t, "CAPTURE_TIMEOUT", envelope.Panels[0].Error.Code)
 				require.Equal(t, "ok", envelope.Panels[1].Status)
 			}
-			if tc.name == "changed context" {
+			if tc.name == "changed context" || tc.name == "variable loading changes context" {
 				require.Equal(t, "CAPTURE_CONTEXT_CHANGED", envelope.Error.Code)
 			}
 		})

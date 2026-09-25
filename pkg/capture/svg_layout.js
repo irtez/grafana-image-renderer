@@ -1,7 +1,7 @@
 (request) => {
   'use strict';
   const error = (code) => ({ status: 'error', error: { code } });
-  const pending = () => ({ status: 'pending', contextKey: '', panels: [] });
+  const pending = (contextKey = '') => ({ status: 'pending', contextKey, panels: [] });
   try {
     const scene = window.__grafanaSceneContext;
     if (!scene) return pending();
@@ -12,11 +12,8 @@
       return error('CAPTURE_CONTEXT_CHANGED');
     const vars = scene.state.$variables?.state?.variables ?? [];
     if (!Array.isArray(vars)) return error('CAPTURE_LAYOUT_UNSUPPORTED');
-    if (
-      scene.state.defaultVariablesLoading ||
-      vars.some((v) => v.state?.loading === true || v.state?.isLoading === true)
-    )
-      return pending();
+    const variablesLoading = !!scene.state.defaultVariablesLoading ||
+      vars.some((v) => v.state?.loading === true || v.state?.isLoading === true);
     const time = scene.state.$timeRange?.state;
     if (!time?.value) return pending();
     const from = time.value.from?.valueOf(),
@@ -49,9 +46,12 @@
       time.timeZone,
       from,
       to,
+      variablesLoading,
       vars.map((v) => [v.state?.name, v.state?.value]),
     ]);
     if (contextKey.length > 262144) return error('CAPTURE_LAYOUT_UNSUPPORTED');
+    // Loading is not evidence that the previous input context still applies.
+    if (variablesLoading) return pending(contextKey);
     const all = scene.getDashboardPanels();
     if (!Array.isArray(all) || all.length > 10000)
       return error('CAPTURE_LAYOUT_UNSUPPORTED');

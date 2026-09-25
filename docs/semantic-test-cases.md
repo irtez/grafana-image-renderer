@@ -59,7 +59,7 @@ It covers delayed/pending sibling panels, unmount retention, generation invalida
 | Completed panel unmounts | Retain its request-local snapshot and requested order while collecting another tab. | `TestSVGBatchRetainsSnapshotBeforeUnmountAndKeepsRequestedOrder` |
 | Ready sibling and pending panel | Deadline preserves ready result, pending gets timeout; no full timeout per panel. | `TestSVGBatchDeadlinePreservesReadySibling` |
 | New generation after success | Invalidate old payload before pending/timeout, never return stale success. | `TestSVGBatchNewRunInvalidatesRetainedSnapshot` |
-| Changed variables/time/dashboard | Fail entire inconsistent batch; no cross-context payloads. | `TestSVGBatchContextChangeRejectsMixedResults`, `TestSVGLayoutDriver` |
+| Changed variables/time/dashboard, including loading that never completes | Fail entire inconsistent batch; no cross-context payloads, including deadline during a new variable load. Initial loading remains waitable. | `TestSVGBatchContextChangeRejectsMixedResults`, `TestSVGLayoutDriver`, `TestSVGBrowserCapture/variable_loading_changes_context` |
 | Shared deadline and cancellation | Navigation consumes the same budget, with reply reserve. Client cancellation propagates as cancellation. | `svg_session_test.go` |
 | Separate v2 limits/output | TableNG byte limit does not affect SVG; solo and batch use the same ordered envelope. | `TestSVGSessionReturnsV2AndDoesNotUseTableByteLimit` |
 | Batch HTTP route | One browser call; preserve repeated variables and relative time; remove markers/refresh. | `TestV2BatchUsesCapturePrinterAndPreservesNavigationInputs` |
