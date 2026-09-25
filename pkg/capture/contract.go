@@ -8,15 +8,16 @@ import (
 const ContractV1 = "siam-render-capture/v1"
 
 type Request struct {
-	Version       int
-	PanelIDs      []int
-	DashboardUID  string
-	PanelID       int
-	Kind          string
-	RenderFrom    string
-	RenderTo      string
-	Timezone      string
-	VariablesHash string
+	Version          int
+	MaxResponseBytes int
+	PanelIDs         []int
+	DashboardUID     string
+	PanelID          int
+	Kind             string
+	RenderFrom       string
+	RenderTo         string
+	Timezone         string
+	VariablesHash    string
 }
 
 type Metadata struct {

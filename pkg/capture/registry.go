@@ -74,21 +74,32 @@ func (e *Engine) Match(target *url.URL, transport Transport) (*Session, error) {
 		return nil, unsupportedKind()
 	}
 
-	return &Session{
-		request:       request,
-		navigationURL: navigationURL,
-		collector:     collector,
-		timeout:       e.config.Timeout,
-		maxJSONBytes:  e.config.MaxJSONBytes,
-	}, nil
+	session := &Session{
+		request:           request,
+		navigationURL:     navigationURL,
+		collector:         collector,
+		timeout:           e.config.Timeout,
+		maxJSONBytes:      e.config.MaxJSONBytes,
+		maxPanelJSONBytes: e.config.MaxJSONBytes,
+		startedAt:         time.Now(),
+	}
+	if request.Version == 2 {
+		session.maxJSONBytes = e.config.SVGMaxJSONBytes
+		session.maxPanelJSONBytes = e.config.SVGMaxPanelBytes
+		session.request.MaxResponseBytes = e.config.SVGMaxJSONBytes
+	}
+	return session, nil
 }
 
 type Session struct {
-	request       Request
-	navigationURL string
-	collector     Collector
-	timeout       time.Duration
-	maxJSONBytes  int
+	request           Request
+	navigationURL     string
+	collector         Collector
+	timeout           time.Duration
+	maxJSONBytes      int
+	maxPanelJSONBytes int
+	startedAt         time.Time
+	navigationError   *Error
 }
 
 func (s *Session) Request() Request {
@@ -100,6 +111,9 @@ func (s *Session) NavigationURL() string {
 }
 
 func (s *Session) Capture(parent context.Context) ([]byte, error) {
+	if s.request.Version == 2 {
+		return s.captureSVG(parent)
+	}
 	ctx, cancel := context.WithTimeout(parent, s.timeout)
 	defer cancel()
 

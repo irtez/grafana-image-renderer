@@ -24,6 +24,10 @@ func (s *Session) Initialization() func(context.Context) error {
 		return nil
 	}
 	return func(ctx context.Context) error {
-		return initializer.Initialize(ctx, s.request, s.maxJSONBytes)
+		limit := s.maxPanelJSONBytes
+		if limit == 0 {
+			limit = s.maxJSONBytes
+		}
+		return initializer.Initialize(ctx, s.request, limit)
 	}
 }

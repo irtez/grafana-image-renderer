@@ -14,12 +14,18 @@ func readinessActions(printer Printer, imageReadiness func() chromedp.Tasks) chr
 }
 
 // Навигация остаётся единственным action для PNG/PDF и collectors без bootstrap.
-func navigationActions(printer Printer, navigate chromedp.Action) chromedp.Tasks {
+func navigationActions(printer Printer, navigate chromedp.Action, after ...chromedp.Action) chromedp.Tasks {
 	var actions chromedp.Tasks
 	if initializer, ok := printer.(preNavigationPrinter); ok {
 		if initialize := initializer.beforeNavigate(); initialize != nil {
 			actions = append(actions, observingAction("printer.beforeNavigate", initialize))
 		}
 	}
-	return append(actions, observingAction("Navigate", navigate))
+	work := append(chromedp.Tasks{observingAction("Navigate", navigate)}, after...)
+	if budget, ok := printer.(interface {
+		navigation(chromedp.Tasks) chromedp.Action
+	}); ok {
+		return append(actions, budget.navigation(work))
+	}
+	return append(actions, work...)
 }

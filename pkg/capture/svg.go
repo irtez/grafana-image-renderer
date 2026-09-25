@@ -1,7 +1,6 @@
 package capture
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	"github.com/chromedp/cdproto/page"
-	"github.com/grafana/chromedp"
 )
 
 type SVGCollector struct{}
@@ -36,6 +34,7 @@ type svgScriptError struct {
 }
 
 type svgScriptResult struct {
+	Unchanged    bool            `json:"unchanged,omitempty"`
 	Status       string          `json:"status"`
 	Identity     *SVGIdentity    `json:"identity"`
 	Run          *SVGRun         `json:"run"`
@@ -58,18 +57,8 @@ func svgTransportRead(panelID int) string {
 }
 
 func (*SVGCollector) Collect(ctx context.Context, request Request, maxBytes int) (Collection, error) {
-	return collectSVG(ctx, request, maxBytes, func(ctx context.Context) (svgScriptResult, error) {
-		var raw json.RawMessage
-		if err := chromedp.Evaluate(svgTransportRead(request.PanelID), &raw).Do(ctx); err != nil {
-			return svgScriptResult{}, err
-		}
-		var state svgScriptResult
-		decoder := json.NewDecoder(bytes.NewReader(raw))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&state); err != nil {
-			return svgScriptResult{Status: "terminal-error", Error: &svgScriptError{Code: "CAPTURE_PAYLOAD_INVALID"}}, nil
-		}
-		return state, nil
+	return collectSVGBatch(ctx, request, maxBytes, func(ctx context.Context, focus int, stamps map[int]svgStamp) (svgBatchStep, error) {
+		return readSVGBatch(ctx, request, focus, stamps)
 	})
 }
 
@@ -150,6 +139,16 @@ func svgCollectionFromScript(state svgScriptResult, request Request, maxBytes in
 
 func svgError(code string) Collection {
 	messages := map[string]string{
+		"CAPTURE_INTERNAL_ERROR":         "semantic capture failed",
+		"CAPTURE_PANEL_NOT_FOUND":        "requested panel was not found",
+		"CAPTURE_PANEL_UNSUPPORTED":      "requested panel type is not supported",
+		"CAPTURE_REPEAT_UNSUPPORTED":     "repeated panels are not supported",
+		"CAPTURE_LAYOUT_UNSUPPORTED":     "dashboard layout is not supported",
+		"CAPTURE_CONTEXT_CHANGED":        "dashboard inputs changed during capture",
+		"CAPTURE_MODE_UNSUPPORTED":       "panel display mode is not supported",
+		"CAPTURE_SVG_COMPLEXITY_LIMIT":   "SVG traversal exceeds the supported complexity",
+		"CAPTURE_SVG_TEXT_LIMIT":         "SVG text exceeds the supported measurement budget",
+		"CAPTURE_SVG_INVALID_GEOMETRY":   "SVG has invalid geometry",
 		"CAPTURE_VALIDATION_LIMIT":       "SVG snapshot exceeds validation safety limits",
 		"CAPTURE_PRODUCER_MISSING":       "no compatible SVG capture producer is available",
 		"CAPTURE_PROTOCOL_UNSUPPORTED":   "SVG capture protocol is not supported",

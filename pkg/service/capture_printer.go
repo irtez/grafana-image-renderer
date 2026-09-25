@@ -27,6 +27,12 @@ func (p *capturePrinter) usesProducerReadiness() bool {
 	return p.session.UsesProducerReadiness()
 }
 
+func (p *capturePrinter) navigation(actions chromedp.Tasks) chromedp.Action {
+	return chromedp.ActionFunc(func(ctx context.Context) error {
+		return p.session.Navigate(ctx, actions.Do)
+	})
+}
+
 func (p *capturePrinter) prepare(_ config.BrowserConfig, _ string) chromedp.Action {
 	return chromedp.ActionFunc(func(context.Context) error {
 		return nil

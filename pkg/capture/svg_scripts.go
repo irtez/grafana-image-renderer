@@ -12,6 +12,9 @@ var svgReceiverScript string
 //go:embed svg_read.js
 var svgReadScript string
 
+//go:embed svg_layout.js
+var svgLayoutScript string
+
 // Скрипт устанавливается до навигации во всех документах, включая iframe.
 func svgBootstrapScript(panelID, maxBytes int) string {
 	return svgBatchBootstrapScript([]int{panelID}, maxBytes)
