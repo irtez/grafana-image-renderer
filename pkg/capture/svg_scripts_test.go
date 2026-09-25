@@ -2,6 +2,7 @@ package capture
 
 import (
 	"encoding/json"
+	"fmt"
 	"os/exec"
 	"strings"
 	"testing"
@@ -15,9 +16,10 @@ func TestSVGScriptRuntime(t *testing.T) {
 		t.Skip("Node.js is required for browser script contract tests")
 	}
 	input, err := json.Marshal(map[string]string{
+		"batch":     fmt.Sprintf("(%s)([7,8],1048576);", svgReceiverScript),
 		"bootstrap": svgBootstrapScript(7, 1024*1024),
 		"limited":   svgBootstrapScript(7, 512),
-		"read":      svgReadScript,
+		"read":      svgReadExpression(7),
 	})
 	require.NoError(t, err)
 	command := exec.Command(node, "testdata/svg_receiver_test.cjs")

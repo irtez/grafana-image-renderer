@@ -1,6 +1,6 @@
-(() => {
+(panelId) => {
   'use strict';
-  const PRIVATE = '__SVG_MODIFIER_RENDER_CAPTURE_V1__';
+  const PRIVATE = '__SVG_MODIFIER_RENDER_CAPTURE_V2__';
   const MAX_FRAMES = 64;
   const MAX_DEPTH = 16;
   const error = (code) => Object.assign(Object.create(null), {
@@ -10,8 +10,8 @@
   const idle = () => Object.assign(Object.create(null), { status: 'idle', identity: null, run: null });
   try {
     const root = window[PRIVATE];
-    if (!root || root.protocolVersion !== 1 || typeof root.read !== 'function' ||
-        !Number.isSafeInteger(root.panelId) || !Number.isSafeInteger(root.maxPayloadBytes) || root.maxPayloadBytes < 1) {
+    if (!root || root.protocolVersion !== 2 || typeof root.read !== 'function' ||
+        !Array.isArray(root.panelIds) || !root.panelIds.includes(panelId) || !Number.isSafeInteger(root.maxPayloadBytes) || root.maxPayloadBytes < 1) {
       return error('CAPTURE_PROTOCOL_UNSUPPORTED');
     }
     // Методы берём из parent realm: sandbox подменяет document/frames и DOM-прототипы
@@ -42,7 +42,7 @@
         receiver = frame[PRIVATE];
       } catch { return error('CAPTURE_FRAME_UNSUPPORTED'); }
       if (!document || !receiver) return error('CAPTURE_FRAME_UNSUPPORTED');
-      if (receiver.protocolVersion !== 1 || receiver.panelId !== root.panelId ||
+      if (receiver.protocolVersion !== 2 || !Array.isArray(receiver.panelIds) || receiver.panelIds.length !== root.panelIds.length || receiver.panelIds.some((id,index)=>id!==root.panelIds[index]) ||
           receiver.maxPayloadBytes !== root.maxPayloadBytes || typeof receiver.read !== 'function') {
         return error('CAPTURE_PROTOCOL_UNSUPPORTED');
       }
@@ -62,6 +62,8 @@
         }
         for (let index = 0; index < elements.length; index++) {
           const element = elements[index];
+          const host=element.closest?.('[data-viz-panel-key]')?.getAttribute('data-viz-panel-key');
+          if (host && /^panel-\d+$/.test(host) && Number(host.slice(6))!==panelId) continue;
           const access = frameAccess[element.localName];
           enqueue(access.window.call(element), access.document.call(element));
         }
@@ -69,11 +71,11 @@
     }
     // Сначала завершаем обход DOM: его getters могут синхронно обновить producer.
     // Далее читаются только атомарные неизменяемые состояния receiver.
-    const states = receivers.map((receiver) => receiver.read());
+    const states = receivers.map((receiver) => receiver.read(panelId));
     const equivalent = (left, right) => {
       let work = 0;
       const visit = (a, b, depth) => {
-        if (++work > 100032 || depth > 68) return false;
+        if (++work > root.maxPayloadBytes + 2048 || depth > 68) return false;
         if (a === b) return true;
         if (a === null || b === null || typeof a !== 'object' || typeof b !== 'object' ||
             Array.isArray(a) !== Array.isArray(b)) return false;
@@ -96,7 +98,7 @@
         if (state.status !== 'idle') return error('CAPTURE_PAYLOAD_INVALID');
         continue;
       }
-      if (!state.identity || state.identity.producerId !== 'svgmodifier-panel' || state.identity.panelId !== root.panelId ||
+      if (!state.identity || state.identity.producerId !== 'svgmodifier-panel' || state.identity.panelId !== panelId ||
           typeof state.identity.producerVersion !== 'string' || typeof state.identity.instanceId !== 'string') {
         return error('CAPTURE_PAYLOAD_INVALID');
       }
@@ -113,4 +115,4 @@
     }
     return selected ?? idle();
   } catch { return error('CAPTURE_FRAME_UNSUPPORTED'); }
-})()
+}

@@ -23,7 +23,11 @@ func (*SVGCollector) Initialize(ctx context.Context, request Request, maxBytes i
 		return fmt.Errorf("invalid SVG capture initialization")
 	}
 	// Без worldName и top-only guard: Grafana sandbox выполняет producer в дочернем realm.
-	_, err := page.AddScriptToEvaluateOnNewDocument(svgBootstrapScript(request.PanelID, maxBytes)).Do(ctx)
+	ids := request.PanelIDs
+	if len(ids) == 0 {
+		ids = []int{request.PanelID}
+	}
+	_, err := page.AddScriptToEvaluateOnNewDocument(svgBatchBootstrapScript(ids, maxBytes)).Do(ctx)
 	return err
 }
 
@@ -42,19 +46,21 @@ type svgScriptResult struct {
 
 // CDP переносит bounded JSON как строку: его собственное escaping не меняет
 // byte counter снимка, и Go не преобразует исходные числовые токены через float64.
-var svgTransportRead = `(() => {
-  const state = ` + svgReadScript + `;
+func svgTransportRead(panelID int) string {
+	return `(() => {
+  const state = ` + svgReadExpression(panelID) + `;
   if (state.status === 'terminal-ok') {
     return {status: state.status, identity: state.identity, run: state.run,
       snapshotJSON: JSON.stringify(state.snapshot), payloadBytes: state.payloadBytes};
   }
   return state;
 })()`
+}
 
 func (*SVGCollector) Collect(ctx context.Context, request Request, maxBytes int) (Collection, error) {
 	return collectSVG(ctx, request, maxBytes, func(ctx context.Context) (svgScriptResult, error) {
 		var raw json.RawMessage
-		if err := chromedp.Evaluate(svgTransportRead, &raw).Do(ctx); err != nil {
+		if err := chromedp.Evaluate(svgTransportRead(request.PanelID), &raw).Do(ctx); err != nil {
 			return svgScriptResult{}, err
 		}
 		var state svgScriptResult

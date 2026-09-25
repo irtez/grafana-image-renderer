@@ -4,7 +4,7 @@ const vm = require('node:vm');
 const { test } = require('node:test');
 
 const scripts = JSON.parse(fs.readFileSync(0, 'utf8'));
-const name = '__SVG_MODIFIER_RENDER_CAPTURE_V1__';
+const name = '__SVG_MODIFIER_RENDER_CAPTURE_V2__';
 function context(bootstrap = scripts.bootstrap) {
   const realm = vm.createContext({});
   vm.runInContext(`
@@ -36,12 +36,12 @@ function context(bootstrap = scripts.bootstrap) {
       return { generation, effectiveFromMs: 1000, effectiveToMs: 2000 };
     }
     function snapshot(generation = 1) {
-      return { kind: 'svgmodifier', schemaVersion: 1,
+      return { kind: 'svgmodifier', schemaVersion: 2,
         producer: { id: 'svgmodifier-panel', version: '1.0.0' }, panel: { id: 7 },
         observed: { generation, effectiveFromMs: 1000, effectiveToMs: 2000,
           evaluatedAtMs: 2001, dataState: 'Done' } };
     }
-    function connect(instanceId) { return __SVG_MODIFIER_CAPTURE_V1__.connect(identity(instanceId)); }
+    function connect(instanceId) { return __SVG_MODIFIER_CAPTURE_V2__.connect(identity(instanceId)); }
     function publish(instanceId = 'instance-a', generation = 1) {
       const session = connect(instanceId);
       session.begin(run(generation));
@@ -54,7 +54,7 @@ function context(bootstrap = scripts.bootstrap) {
 }
 function execute(realm, code) { return vm.runInContext(code, realm); }
 function read(realm) { return JSON.parse(JSON.stringify(execute(realm, scripts.read))); }
-function local(realm) { return JSON.parse(JSON.stringify(execute(realm, `${name}.read()`))); }
+function local(realm) { return JSON.parse(JSON.stringify(execute(realm, `${name}.read(7)`))); }
 function code(realm, expected) {
   const state = read(realm);
   assert.equal(state.status, 'terminal-error');
@@ -66,14 +66,14 @@ test('installs in a child context without timers and accepts only the requested 
   const realm = context('');
   realm.top = {};
   execute(realm, scripts.bootstrap);
-  assert.equal(execute(realm, '__SVG_MODIFIER_CAPTURE_V1__.connect({...identity(),panelId:8})'), null);
-  assert.equal(execute(realm, '__SVG_MODIFIER_CAPTURE_V1__.connect({...identity(),producerId:"other"})'), null);
-  assert.equal(execute(realm, '__SVG_MODIFIER_CAPTURE_V1__.connect({...identity(),instanceId:""})'), null);
+  assert.equal(execute(realm, '__SVG_MODIFIER_CAPTURE_V2__.connect({...identity(),panelId:8})'), null);
+  assert.equal(execute(realm, '__SVG_MODIFIER_CAPTURE_V2__.connect({...identity(),producerId:"other"})'), null);
+  assert.equal(execute(realm, '__SVG_MODIFIER_CAPTURE_V2__.connect({...identity(),instanceId:""})'), null);
   assert.equal(read(realm).status, 'idle');
   execute(realm, 'handle = publish()');
   assert.equal(read(realm).status, 'terminal-ok');
   assert.equal(execute(realm, 'handle.maxPayloadBytes'), 1048576);
-  assert.equal(execute(realm, 'handle.protocolVersion'), 1);
+  assert.equal(execute(realm, 'handle.protocolVersion'), 2);
 });
 
 test('one atomic immutable copy retains original values and exact byte count', () => {
@@ -88,7 +88,7 @@ test('one atomic immutable copy retains original values and exact byte count', (
   assert.deepEqual(state.snapshot, JSON.parse(execute(realm, 'expected')));
   assert.equal(state.payloadBytes, Buffer.byteLength(execute(realm, 'expected')));
   assert.deepEqual(state.run, { generation: 1, effectiveFromMs: 1000, effectiveToMs: 2000 });
-  assert.equal(execute(realm, `Object.isFrozen(${name}.read().snapshot.extra.nested)`), true);
+  assert.equal(execute(realm, `Object.isFrozen(${name}.read(7).snapshot.extra.nested)`), true);
 });
 
 test('begin clears success; late publish and fail cannot replace the current generation', () => {
@@ -294,7 +294,7 @@ test('safe data keys cannot pollute the copied object prototype', () => {
     handle.publish(1,()=>value);`);
   assert.equal(read(realm).status, 'terminal-ok');
   assert.equal(read(realm).snapshot.extra.__proto__.polluted, true);
-  assert.equal(execute(realm, `Object.getPrototypeOf(${name}.read().snapshot.extra)`), null);
+  assert.equal(execute(realm, `Object.getPrototypeOf(${name}.read(7).snapshot.extra)`), null);
   assert.equal(execute(realm, '({}).polluted'), undefined);
 });
 
@@ -302,7 +302,7 @@ test('an inherited toJSON added after publication is never called on the stored 
   const realm = context();
   execute(realm, `handle=connect();handle.begin(run());value=snapshot();value.extra=[1];handle.publish(1,()=>value);
     Object.prototype.toJSON = Array.prototype.toJSON = function(){throw Error('unsafe serialization')};`);
-  assert.equal(execute(realm, `JSON.parse(JSON.stringify(${name}.read())).snapshot.extra[0]`), 1);
+  assert.equal(execute(realm, `JSON.parse(JSON.stringify(${name}.read(7))).snapshot.extra[0]`), 1);
 });
 
 test('exact UTF-8 byte limit permits the complete snapshot and rejects the next byte', () => {
@@ -315,7 +315,7 @@ test('exact UTF-8 byte limit permits the complete snapshot and rejects the next 
   code(realm, 'CAPTURE_PAYLOAD_TOO_LARGE');
 });
 
-for (const expression of ['"x".repeat(2000000)', 'new Array(100000000)', 'Array.from({length:100001},()=>0)', 'Object.fromEntries(Array.from({length:100001},(_,i)=>["key"+i,0]))', 'Array.from({length:70}).reduce(v=>({child:v}),null)']) {
+for (const expression of ['"x".repeat(2000000)', 'new Array(100000000)', 'Array.from({length:600001},()=>0)', 'Object.fromEntries(Array.from({length:600001},(_,i)=>["key"+i,0]))', 'Array.from({length:70}).reduce(v=>({child:v}),null)']) {
   test(`copy returns an explicit size error without a partial snapshot: ${expression}`, () => {
     const realm = context();
     execute(realm, `handle=connect();handle.begin(run());value=snapshot();value.extra=${expression};handle.publish(1,()=>value);`);
@@ -467,4 +467,32 @@ test('frame count and depth are bounded; cyclic aliases do not loop', () => {
   root.frames = [];
   for (let i = 0; i < 20; i++) { const child = context(); parent.frames = [child]; parent = child; }
   code(root, 'CAPTURE_FRAME_UNSUPPORTED');
+});
+
+
+test('two selected panels keep independent generations, errors and identical SVG identifiers',()=>{
+ const realm=context(scripts.batch);
+ execute(realm,`a=publish(); b=__SVG_MODIFIER_CAPTURE_V2__.connect({...identity('b'),panelId:8});b.begin(run());b.publish(1,()=>({...snapshot(),panel:{id:8},extra:{svgId:'cell-a'}}));`);
+ assert.equal(read(realm).status,'terminal-ok');
+ assert.equal(execute(realm,name+'.read(8).status'),'terminal-ok');
+ execute(realm,'duplicate=connect("duplicate");');
+ code(realm,'CAPTURE_INSTANCE_AMBIGUOUS');
+ assert.equal(execute(realm,name+'.read(8).status'),'terminal-ok');
+ execute(realm,'b.begin(run(2));');assert.equal(execute(realm,name+'.read(8).status'),'pending');
+ assert.equal(execute(realm,'typeof __SVG_MODIFIER_CAPTURE_V1__'),'undefined');
+});
+test('one panel byte overflow does not poison a ready sibling',()=>{
+ const realm=context(scripts.batch);execute(realm,`a=publish();b=__SVG_MODIFIER_CAPTURE_V2__.connect({...identity('b'),panelId:8});b.begin(run());b.publish(1,()=>({...snapshot(),panel:{id:8},extra:'x'.repeat(2000000)}));`);
+ assert.equal(read(realm).status,'terminal-ok');assert.equal(execute(realm,name+'.read(8).error.code'),'CAPTURE_PAYLOAD_TOO_LARGE');
+});
+test('routing an unselected identity does not execute panelId getters',()=>{
+ const realm=context(scripts.batch);execute(realm,`reads=0;const bad=Object.defineProperty(identity(),'panelId',{get(){reads++;return 7;}});rejected=__SVG_MODIFIER_CAPTURE_V2__.connect(bad);`);
+ assert.equal(execute(realm,'rejected'),null);assert.equal(execute(realm,'reads'),0);
+});
+
+test('an inaccessible frame owned by another panel does not fail this panel',()=>{
+ const realm=context(scripts.batch);execute(realm,`a=publish();document.actualElements=[{
+  localName:'iframe',child:{__nativeDocument:null},closest(){return {getAttribute(){return 'panel-8';}}}
+ }];__nativeFrameCount=1;`);
+ assert.equal(read(realm).status,'terminal-ok');
 });

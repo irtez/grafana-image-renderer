@@ -30,6 +30,8 @@ Node.js is required for `TestSVGScriptRuntime`: it executes the embedded receive
 | Table source rows and displayed order | Validate row widths, winner/cell issue indices and tooltip references independently | `TestValidateV2TableKeepsSourceIndicesAndTooltipOrder` |
 | JSON preflight | Reject duplicate keys, trailing JSON, invalid UTF-8, excessive depth/numeric tokens before schema allocation; safety limit has a distinct code | `TestValidateV2SnapshotRejectsMalformedJSONAndBoundedWork`, `TestValidateV2SafetyLimitHasDistinctError` |
 | Large valid compact payload | No obsolete 100k-values ceiling below the configured byte budget | `TestValidateV2AcceptsLargeJSONWithinByteBudget` |
+| V2 browser registry | Two selected panel IDs have independent generations/overflow/errors; duplicate instances affect only their panel; panelId getters do not execute | `TestSVGScriptRuntime` |
+| Frame ownership | An inaccessible frame scoped to another panel does not invalidate the selected panel; unscoped/unknown frames still fail closed | `TestSVGScriptRuntime` |
 
 | Case | Expected behavior | Automated coverage |
 |---|---|---|

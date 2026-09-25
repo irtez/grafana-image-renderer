@@ -1,9 +1,8 @@
-(panelId, maxPayloadBytes) => {
+(panelIds, maxPayloadBytes) => {
   'use strict';
-  const PRIVATE = '__SVG_MODIFIER_RENDER_CAPTURE_V1__';
-  const HOOK = '__SVG_MODIFIER_CAPTURE_V1__';
+  const PRIVATE = '__SVG_MODIFIER_RENDER_CAPTURE_V2__';
+  const HOOK = '__SVG_MODIFIER_CAPTURE_V2__';
   const MAX_DEPTH = 64;
-  const MAX_VALUES = 100000;
   const MAX_SESSIONS = 64;
   const freeze = Object.freeze;
   const create = Object.create;
@@ -21,15 +20,17 @@
   const errors = new Set([
     'CAPTURE_INSTANCE_AMBIGUOUS', 'CAPTURE_PAYLOAD_TOO_LARGE', 'CAPTURE_PAYLOAD_INVALID',
     'CAPTURE_DATA_STATE_UNSUPPORTED', 'CAPTURE_EXPORT_FAILED', 'CAPTURE_PROTOCOL_UNSUPPORTED',
-    'CAPTURE_FRAME_UNSUPPORTED', 'CAPTURE_PRODUCER_MISSING',
+    'CAPTURE_FRAME_UNSUPPORTED', 'CAPTURE_PRODUCER_MISSING', 'CAPTURE_MODE_UNSUPPORTED',
+    'CAPTURE_SVG_COMPLEXITY_LIMIT', 'CAPTURE_SVG_TEXT_LIMIT', 'CAPTURE_SVG_INVALID_GEOMETRY',
   ]);
-  if (!safeInteger(panelId) || panelId < 0 || !safeInteger(maxPayloadBytes) || maxPayloadBytes < 1) {
+  if (!isArray(panelIds) || panelIds.length === 0 || panelIds.some(id => !safeInteger(id) || id < 0) || new Set(panelIds).size !== panelIds.length || !safeInteger(maxPayloadBytes) || maxPayloadBytes < 1) {
     throw new Error('CAPTURE_PROTOCOL_UNSUPPORTED');
   }
   const previous = descriptor(window, PRIVATE);
   if (previous) {
-    if (own(previous, 'value') && previous.value.protocolVersion === 1 &&
-        previous.value.panelId === panelId && previous.value.maxPayloadBytes === maxPayloadBytes) {
+    if (own(previous, 'value') && previous.value.protocolVersion === 2 &&
+        isArray(previous.value.panelIds) && previous.value.panelIds.length === panelIds.length &&
+        panelIds.every((id,i)=>previous.value.panelIds[i]===id) && previous.value.maxPayloadBytes === maxPayloadBytes) {
       return;
     }
     throw new Error('CAPTURE_PROTOCOL_UNSUPPORTED');
@@ -66,7 +67,7 @@
       }
     };
     const visit = (value, depth) => {
-      if (++values > MAX_VALUES || depth > MAX_DEPTH) tooLarge();
+      if (++values > limit || depth > MAX_DEPTH) tooLarge();
       if (value === null) { spend(4); return null; }
       if (typeof value === 'string') { stringBytes(value); return value; }
       if (typeof value === 'boolean') { spend(value ? 4 : 5); return value; }
@@ -83,14 +84,14 @@
       if (array) {
         length = descriptor(value, 'length')?.value;
         if (!safeInteger(length) || length < 0) invalid();
-        if (length > MAX_VALUES - values || (length ? length * 2 + 1 : 2) > limit - bytes) tooLarge();
+        if (length > limit - values || (length ? length * 2 + 1 : 2) > limit - bytes) tooLarge();
       }
       // Полная проверка symbol/non-enumerable требует ownKeys: потокового API в JS нет.
       // Само перечисление ключей, Proxy traps и producer factory не прерываются
       // этими бюджетами. Ограничены копия и дальнейший обход, а не произвольный JS.
       const keys = ownKeys(value);
       const count = keys.length - (array ? 1 : 0);
-      if (count > MAX_VALUES - values || count > limit - bytes) tooLarge();
+      if (count > limit - values || count > limit - bytes) tooLarge();
       if (array && count !== length) invalid();
       const copy = array ? [] : create(null);
       // Сериализация массива также не должна увидеть изменённый Array.prototype.toJSON.
@@ -115,6 +116,7 @@
     };
     return { value: visit(input, 0), bytes };
   };
+  const createReceiver = (panelId) => {
   const identityFrom = (input) => {
     try {
       const value = boundedCopy(input, 2048).value;
@@ -135,7 +137,7 @@
     } catch { return null; }
   };
   const matchesRun = (value, identity, run) => record(value) && value.kind === 'svgmodifier' &&
-    value.schemaVersion === 1 && record(value.producer) && value.producer.id === identity.producerId &&
+    value.schemaVersion === 2 && record(value.producer) && value.producer.id === identity.producerId &&
     value.producer.version === identity.producerVersion && record(value.panel) && value.panel.id === panelId &&
     record(value.observed) && value.observed.generation === run.generation &&
     value.observed.effectiveFromMs === run.effectiveFromMs && value.observed.effectiveToMs === run.effectiveToMs &&
@@ -172,7 +174,7 @@
       live.add(session);
       membershipChanged();
       return immutable({
-        protocolVersion: 1,
+        protocolVersion: 2,
         maxPayloadBytes,
         begin(input) {
           if (overflowed || !live.has(session)) return;
@@ -239,7 +241,18 @@
       });
     },
   });
-  const receiver = immutable({ protocolVersion: 1, panelId, maxPayloadBytes, read: () => state });
+  return {hook,read:()=>state};
+  };
+  const receivers=new Map(panelIds.map(id=>[id,createReceiver(id)]));
+  const hook=immutable({connect(input){
+    try {
+      const property=descriptor(input,'panelId');
+      if(!property || !own(property,'value') || !safeInteger(property.value)) return null;
+      return receivers.get(property.value)?.hook.connect(input)??null;
+    }catch{return null;}
+  }});
+  const receiver = immutable({ protocolVersion: 2, panelIds: freeze([...panelIds]), maxPayloadBytes,
+    read: (id)=>receivers.get(id)?.read()??immutable({status:'terminal-error',identity:null,run:null,error:immutable({code:'CAPTURE_PAYLOAD_INVALID'})}) });
   define(window, PRIVATE, { value: receiver });
   define(window, HOOK, { value: hook });
 }
