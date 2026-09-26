@@ -170,6 +170,13 @@ Messages are bounded and do not contain URLs, credentials, variables, query resp
 - `semantic_capture_stage_duration_seconds{kind,stage}` where stage is `collect` or `serialize`;
 - `semantic_capture_payload_bytes{kind}`.
 
+For SVG v2, the request outcome follows the final serialized envelope: `complete`
+counts as `ok`, while `partial` and `failed` count as `domain_error`. This includes
+a total-byte overflow that replaces successfully collected panels with a failed
+envelope, as well as envelopes containing panel timeout errors. If serialization
+fails or even the error envelope cannot fit, the outcome is `serialize_error`.
+TableNG retains its existing timeout and internal-error outcomes.
+
 Labels contain only allowlisted collector kinds and fixed enums. Dashboard IDs, panel IDs, URLs, variables, values, and error messages are not labels.
 
 ## Compatibility and rollout

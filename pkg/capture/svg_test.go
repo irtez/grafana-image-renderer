@@ -29,8 +29,9 @@ func TestSVGCollectorKeepsCompletePayloadWithoutTrimming(t *testing.T) {
 	require.Equal(t, *state.SnapshotJSON, string(raw))
 	_, trims := collection.Payload.(PayloadTrimmer)
 	require.False(t, trims)
-	body, err := MarshalBatch(Request{PanelIDs: []int{7}}, []PanelResult{{PanelID: 7, Status: "ok", Payload: raw}}, nil, 0, 1, 1024)
+	body, status, err := MarshalBatch(Request{PanelIDs: []int{7}}, []PanelResult{{PanelID: 7, Status: "ok", Payload: raw}}, nil, 0, 1, 1024)
 	require.NoError(t, err)
+	require.Equal(t, "failed", status)
 	require.Contains(t, string(body), `"code":"CAPTURE_PAYLOAD_TOO_LARGE"`)
 }
 

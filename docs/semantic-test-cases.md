@@ -31,6 +31,7 @@ It covers delayed/pending sibling panels, unmount retention, generation invalida
 | V2 invalid request | JSON failed envelope without reflecting unvalidated metadata or credentials | `TestInvalidV2SelectionReturnsJSONWithoutStartingBrowser` |
 | Ordered panel results and UTF-8 boundary | complete/partial/failed describes collection; raw numeric precision remains unchanged | `TestV2EnvelopePreservesOrderStatusAndPrecision` |
 | Oversized batch | Top-level overflow, every requested ID retained as an error, no arbitrary payload prefix | `TestV2EnvelopeNeverTruncatesAnOversizedBatch` |
+| SVG request outcome metric | Classify the final serialized envelope: complete → `ok`; partial/failed, including total overflow after successful panel collection → `domain_error`; an invalid batch or an error envelope that cannot fit → `serialize_error`. Increment exactly one outcome per request. | `TestSVGSessionMetricsFollowFinalEnvelope` |
 | Missing/duplicate/conflicting result entries | Reject malformed internal envelope instead of publishing success | `TestV2EnvelopeRejectsMissingDuplicateOrConflictingEntries` |
 | SVG defaults and environment limits | Separate panel/count/total limits do not change TableNG byte default | `pkg/config/capture_test.go` |
 | Compact producer v2 and panel overrides | Validate actual identity/run without substituting the requested time window; return original numeric tokens | `TestValidateV2SnapshotPreservesProducerPayload`, `svg_test.go` |
@@ -48,7 +49,7 @@ It covers delayed/pending sibling panels, unmount retention, generation invalida
 | Collector with optional bootstrap | Receive the matched request and byte limit before navigation. Bootstrap failure prevents navigation. Existing collectors need not implement it. | `initialization_test.go`, `pre_navigation_test.go` |
 | Producer-owned readiness | SVG may report a result or failure without Grafana's image completion signal. Other collectors retain the old wait. | `TestProducerReadinessDoesNotWaitForImageBinding` |
 | Idle / pending at deadline | Idle means `CAPTURE_PRODUCER_MISSING`; pending or not-yet-observed state means `CAPTURE_TIMEOUT`, including a deadline during CDP read. Client cancellation is not a missing producer. | `TestSVGBatchDeadlineDistinguishesMissingPendingAndInactive`, `TestSVGBatchDoesNotConvertClientCancellationToSuccess` |
-| Transport error text and metrics | Unknown errors become bounded safe messages. Producer-reported timeout increments the `timeout` outcome, not `domain_error`. | `registry_test.go`, `TestSVGCollectorAllowsOnlySafeErrorCodes` |
+| Transport error text and metrics | Unknown errors become bounded safe messages. A TableNG collector-reported timeout increments the `timeout` outcome, not `domain_error`; SVG uses the final envelope status described above. | `registry_test.go`, `TestSVGCollectorAllowsOnlySafeErrorCodes` |
 
 ## Dashboard collection
 

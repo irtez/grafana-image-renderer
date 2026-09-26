@@ -65,22 +65,15 @@ func (s *Session) captureSVG(parent context.Context) ([]byte, error) {
 	}
 	MetricSemanticCaptureStageDuration.WithLabelValues(s.request.Kind, "collect").Observe(time.Since(collectStarted).Seconds())
 	started := time.Now()
-	body, err := MarshalBatch(s.request, panels, global, s.startedAt.UnixMilli(), started.UnixMilli(), s.maxJSONBytes)
+	body, status, err := MarshalBatch(s.request, panels, global, s.startedAt.UnixMilli(), started.UnixMilli(), s.maxJSONBytes)
 	MetricSemanticCaptureStageDuration.WithLabelValues(s.request.Kind, "serialize").Observe(time.Since(started).Seconds())
 	outcome := "ok"
 	if err != nil {
 		outcome = "serialize_error"
 	} else {
 		MetricSemanticCapturePayloadBytes.WithLabelValues(s.request.Kind).Observe(float64(len(body)))
-		if global != nil {
+		if status != "complete" {
 			outcome = "domain_error"
-		} else {
-			for _, panel := range panels {
-				if panel.Error != nil {
-					outcome = "domain_error"
-					break
-				}
-			}
 		}
 	}
 	MetricSemanticCaptureRequests.WithLabelValues(s.request.Kind, outcome).Inc()
