@@ -161,3 +161,30 @@ func TestTableScriptResultRejectsAmbiguousOrMissingResult(t *testing.T) {
 func TestTableCollectorKind(t *testing.T) {
 	require.Equal(t, "grafana-table", NewTableCollector().Kind())
 }
+
+// CAP-05: отсутствие причины ограничения означает полный набор, включая пустой.
+func TestValidateTablePayloadRejectsPartialWithoutReason(t *testing.T) {
+	for _, captured := range []int{0, 1, 2} {
+		payload := validTablePayload()
+		payload.Rows = payload.Rows[:captured]
+		payload.Dataset = TableDataset{TotalRows: 3, CapturedRows: captured, Complete: false}
+		err := validateTablePayload(payload, Request{PanelID: 4})
+		require.Error(t, err, "неполный capture без limitedBy: %d строк", captured)
+	}
+}
+
+func TestValidateTablePayloadAcceptsEmptyCompleteDataset(t *testing.T) {
+	payload := validTablePayload()
+	payload.Rows = []TableRow{}
+	payload.Dataset = TableDataset{TotalRows: 0, CapturedRows: 0, Complete: true}
+	require.NoError(t, validateTablePayload(payload, Request{PanelID: 4}))
+}
+
+func TestTableCollectionRejectsPartialWithoutReason(t *testing.T) {
+	payload := validTablePayload()
+	payload.Rows = payload.Rows[:2]
+	payload.Dataset = TableDataset{TotalRows: 3, CapturedRows: 2, Complete: false}
+	_, err := tableCollectionFromScript(tableScriptResult{Payload: payload}, Request{PanelID: 4})
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), "gamma")
+}

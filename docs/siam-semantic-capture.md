@@ -79,6 +79,11 @@ Example TableNG v1 success envelope (unchanged):
 
 For `grafana-table`, rows and cells are never sliced. The limit is applied to final serialized UTF-8 bytes; complete rows are removed from the end until the envelope fits. `dataset.limitedBy="json_bytes"` identifies a valid prefix. If one row cannot fit an otherwise empty response, the renderer returns `TABLE_ROW_TOO_LARGE` without its cell values.
 
+При `dataset.limitedBy=null` допускается только полный набор: `complete=true` и
+`capturedRows=totalRows`, в том числе 0/0. Неполный набор без причины усечения
+отклоняется validator до формирования успешного ответа. Допустимый префикс из-за
+byte limit по-прежнему использует `limitedBy="json_bytes"`.
+
 ### SVG v2 batch response
 
 Both solo and dashboard mode return `contract: "siam-render-capture/v2"` with:

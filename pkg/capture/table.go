@@ -199,7 +199,7 @@ func validateTablePayload(payload *TablePayload, request Request) error {
 		return fmt.Errorf("captured row count does not match rows")
 	}
 	if payload.Dataset.LimitedBy == nil {
-		if payload.Dataset.Complete != (payload.Dataset.CapturedRows == payload.Dataset.TotalRows) {
+		if !payload.Dataset.Complete || payload.Dataset.CapturedRows != payload.Dataset.TotalRows {
 			return fmt.Errorf("dataset completeness is inconsistent")
 		}
 	} else if *payload.Dataset.LimitedBy != "json_bytes" || payload.Dataset.Complete || payload.Dataset.CapturedRows >= payload.Dataset.TotalRows {
