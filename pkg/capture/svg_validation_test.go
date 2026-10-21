@@ -151,3 +151,49 @@ func TestValidateV2SafetyLimitHasDistinctError(t *testing.T) {
 	raw = bytes.Replace(raw, []byte("12.34567"), []byte("0e4097"), 1)
 	require.ErrorIs(t, validateSVGSnapshot(raw, request, identity, run), errSVGValidationLimit)
 }
+
+func TestSVGValidationRejectsDeeplyNestedJSON(t *testing.T) {
+	t.Parallel()
+	// Create a deeply nested structure that exceeds svgMaxJSONDepth (64)
+	nested := any("leaf")
+	for i := 0; i < 70; i++ {
+		nested = []any{nested}
+	}
+	remaining := 1000000
+	require.False(t, svgBoundedJSON(nested, 0, &remaining))
+}
+
+func TestSVGValidationRejectsExcessiveRemaining(t *testing.T) {
+	t.Parallel()
+	// Create a large array that exhausts remaining
+	large := make([]any, 100000)
+	remaining := 50000
+	require.False(t, svgBoundedJSON(large, 0, &remaining))
+}
+
+func TestSVGValidationRejectsLongNumber(t *testing.T) {
+	t.Parallel()
+	longNum := json.Number(strings.Repeat("1", 129))
+	remaining := 1000000
+	require.False(t, svgBoundedJSON(longNum, 0, &remaining))
+}
+
+func TestSVGValidationRejectsHugeExponent(t *testing.T) {
+	t.Parallel()
+	hugeNum := json.Number("1e5000")
+	remaining := 1000000
+	require.False(t, svgBoundedJSON(hugeNum, 0, &remaining))
+
+	negHugeNum := json.Number("1e-5000")
+	remaining = 1000000
+	require.False(t, svgBoundedJSON(negHugeNum, 0, &remaining))
+}
+
+func TestSVGValidationAcceptsValidNested(t *testing.T) {
+	t.Parallel()
+	nested := map[string]any{
+		"array": []any{1, 2, map[string]any{"deep": "value"}},
+	}
+	remaining := 1000000
+	require.True(t, svgBoundedJSON(nested, 0, &remaining))
+}

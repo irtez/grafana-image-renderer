@@ -188,3 +188,30 @@ func TestTableCollectionRejectsPartialWithoutReason(t *testing.T) {
 	require.Error(t, err)
 	require.NotContains(t, err.Error(), "gamma")
 }
+
+func TestTableErrorMessageRejectsUnknownCode(t *testing.T) {
+	t.Parallel()
+	_, err := tableErrorMessage(tableScriptError{Code: "UNKNOWN_TABLE_ERROR"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "UNKNOWN_TABLE_ERROR")
+}
+
+func TestTableErrorMessageRejectsInvalidRowTooLarge(t *testing.T) {
+	t.Parallel()
+	_, err := tableErrorMessage(tableScriptError{
+		Code:         "TABLE_ROW_TOO_LARGE",
+		Position:     nil,
+		RowUTF8Bytes: ptrInt(100),
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid TABLE_ROW_TOO_LARGE")
+
+	_, err = tableErrorMessage(tableScriptError{
+		Code:         "TABLE_ROW_TOO_LARGE",
+		Position:     ptrInt(-1),
+		RowUTF8Bytes: ptrInt(100),
+	})
+	require.Error(t, err)
+}
+
+func ptrInt(v int) *int { return &v }

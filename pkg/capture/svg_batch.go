@@ -39,6 +39,7 @@ type svgStamp struct {
 	PayloadBytes int          `json:"payloadBytes"`
 }
 type svgBatchReader func(context.Context, int, map[int]svgStamp) (svgBatchStep, error)
+type chromedpEvaluator func(ctx context.Context, script string, target any) error
 
 func collectSVGBatch(ctx context.Context, request Request, maxBytes int, read svgBatchReader) (Collection, error) {
 	ids := request.PanelIDs
@@ -224,9 +225,9 @@ func svgBatchReadScript(request Request, focusID int, stamps map[int]svgStamp) s
 })(%s)`, svgLayoutScript, svgReadScript, args)
 }
 
-func readSVGBatch(ctx context.Context, request Request, focusID int, stamps map[int]svgStamp) (svgBatchStep, error) {
+func readSVGBatch(ctx context.Context, request Request, focusID int, stamps map[int]svgStamp, eval chromedpEvaluator) (svgBatchStep, error) {
 	var raw json.RawMessage
-	if err := chromedp.Evaluate(svgBatchReadScript(request, focusID, stamps), &raw).Do(ctx); err != nil {
+	if err := eval(ctx, svgBatchReadScript(request, focusID, stamps), &raw); err != nil {
 		return svgBatchStep{}, err
 	}
 	var step svgBatchStep
@@ -236,4 +237,8 @@ func readSVGBatch(ctx context.Context, request Request, focusID int, stamps map[
 		return svgBatchStep{Error: &svgScriptError{Code: "CAPTURE_PAYLOAD_INVALID"}}, nil
 	}
 	return step, nil
+}
+
+func defaultChromedpEvaluator(ctx context.Context, script string, target any) error {
+	return chromedp.Evaluate(script, target).Do(ctx)
 }

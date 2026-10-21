@@ -81,3 +81,32 @@ func TestSVGSessionReturnsV2AndDoesNotUseTableByteLimit(t *testing.T) {
 	require.Equal(t, 10000, c.limit)
 	require.Equal(t, "now-3h", got.Capture.From)
 }
+
+func TestSVGSessionNavigateV1CallsActionDirectly(t *testing.T) {
+	t.Parallel()
+	e, err := NewEngine(captureTestConfig(true), literalCollector{kind: "grafana-table"})
+	require.NoError(t, err)
+	v1Target := mustTargetURL(t, "http://grafana:3000/d-solo/cm-sla/dashboard?render=1&panelId=4&from=now-3h&to=now&tz=UTC&siamCaptureVersion=1&siamCaptureKind=grafana-table")
+	s, err := e.Match(v1Target, Transport{Encoding: "png", RenderKey: "rk", Domain: "grafana"})
+	require.NoError(t, err)
+	require.Equal(t, 0, s.request.Version)
+	var ctxPassed context.Context
+	err = s.Navigate(t.Context(), func(ctx context.Context) error {
+		ctxPassed = ctx
+		return nil
+	})
+	require.NoError(t, err)
+	require.NotNil(t, ctxPassed)
+}
+
+func TestSVGSessionCaptureRejectsCancelledParent(t *testing.T) {
+	t.Parallel()
+	e, err := NewEngine(captureTestConfig(true), &svgSessionCollector{})
+	require.NoError(t, err)
+	s, err := e.Match(mustTargetURL(t, mapTarget), validTransport())
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	_, err = s.Capture(ctx)
+	require.ErrorIs(t, err, context.Canceled)
+}

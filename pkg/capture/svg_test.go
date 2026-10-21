@@ -1,6 +1,7 @@
 package capture
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"testing"
@@ -90,4 +91,30 @@ func TestSVGCollectorAllowsOnlySafeErrorCodes(t *testing.T) {
 		}
 		require.NotContains(t, collection.Error.Message, "private-value")
 	}
+}
+
+func TestNewSVGCollector(t *testing.T) {
+	t.Parallel()
+	c := NewSVGCollector()
+	require.NotNil(t, c)
+	require.Equal(t, "svgmodifier", c.Kind())
+	require.True(t, c.UsesProducerReadiness())
+}
+
+func TestSVGCollectorInitializeRejectsInvalid(t *testing.T) {
+	t.Parallel()
+	c := NewSVGCollector()
+	ctx := context.Background()
+
+	err := c.Initialize(ctx, Request{Kind: "grafana-table"}, 100)
+	require.Error(t, err)
+
+	err = c.Initialize(ctx, Request{Kind: "svgmodifier", PanelID: -1}, 100)
+	require.Error(t, err)
+
+	err = c.Initialize(ctx, Request{Kind: "svgmodifier"}, 0)
+	require.Error(t, err)
+
+	err = c.Initialize(ctx, Request{Kind: "svgmodifier"}, -1)
+	require.Error(t, err)
 }

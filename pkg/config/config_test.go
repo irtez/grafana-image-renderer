@@ -708,3 +708,32 @@ func TestParseOverrideFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestBrowserConfig_DeepClone(t *testing.T) {
+	t.Parallel()
+	orig := BrowserConfig{
+		Path: "/usr/bin/chromium",
+		GPU:  true,
+	}
+	cloned := orig.DeepClone()
+	require.Equal(t, orig.Path, cloned.Path)
+	require.Equal(t, orig.GPU, cloned.GPU)
+	cloned.Path = "/other"
+	require.NotEqual(t, orig.Path, cloned.Path)
+}
+
+func TestBrowserConfig_ApplyAll(t *testing.T) {
+	t.Parallel()
+	cfg := BrowserConfig{}
+	cfg.ApplyAll(func(rc *RequestConfig) {
+		rc.MinWidth = 1920
+	})
+	require.Equal(t, 1920, cfg.DefaultRequestConfig.MinWidth)
+}
+
+func TestRequestConfig_LookupRequestConfig(t *testing.T) {
+	t.Parallel()
+	cfg := BrowserConfig{}
+	reqCfg := cfg.LookupRequestConfig(noopSpan(), "http://example.com")
+	require.NotNil(t, reqCfg)
+}

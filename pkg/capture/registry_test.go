@@ -139,3 +139,47 @@ func requireCaptureError(t *testing.T, body []byte, code string) {
 	require.Equal(t, "error", envelope.Result.Status)
 	require.Equal(t, code, envelope.Result.Error.Code)
 }
+
+func TestNewEngineRejectsInvalidSVGLimits(t *testing.T) {
+	t.Parallel()
+	cfg := captureTestConfig(true)
+
+	_, err := NewEngine(cfg, NewTableCollector(), NewSVGCollector())
+	require.NoError(t, err)
+
+	// Negative values are not overwritten by defaults
+	cfg.SVGMaxPanels = -1
+	_, err = NewEngine(cfg, NewTableCollector(), NewSVGCollector())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "SVG limits must be positive")
+
+	cfg.SVGMaxPanels = 1
+	cfg.SVGMaxPanelBytes = -1
+	_, err = NewEngine(cfg, NewTableCollector(), NewSVGCollector())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "SVG limits must be positive")
+
+	cfg.SVGMaxPanelBytes = 1
+	cfg.SVGMaxJSONBytes = -1
+	_, err = NewEngine(cfg, NewTableCollector(), NewSVGCollector())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "SVG limits must be positive")
+}
+
+func TestNewEngineRejectsInvalidTimeout(t *testing.T) {
+	t.Parallel()
+	cfg := captureTestConfig(true)
+	cfg.Timeout = 0
+	_, err := NewEngine(cfg, NewTableCollector())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "capture timeout must be positive")
+}
+
+func TestNewEngineRejectsInvalidMaxJSONBytes(t *testing.T) {
+	t.Parallel()
+	cfg := captureTestConfig(true)
+	cfg.MaxJSONBytes = 0
+	_, err := NewEngine(cfg, NewTableCollector())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "capture max JSON bytes must be positive")
+}

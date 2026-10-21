@@ -54,3 +54,61 @@ func TestSessionInitializationPropagatesFailure(t *testing.T) {
 	})
 	require.ErrorIs(t, session.Initialization()(t.Context()), want)
 }
+
+func TestSessionInitializationFallsBackToMaxJSONBytes(t *testing.T) {
+	t.Parallel()
+	var gotLimit int
+	collector := initializingCollector{
+		literalCollector: literalCollector{kind: "svgmodifier"},
+		initialize: func(ctx context.Context, request Request, maxBytes int) error {
+			gotLimit = maxBytes
+			return nil
+		},
+	}
+	cfg := captureTestConfig(true)
+	engine, err := NewEngine(cfg, collector)
+	require.NoError(t, err)
+	svgTarget := mustTargetURL(t, "http://grafana:3000/d/cm-sla/dashboard?render=1&siamCapturePanels=4&from=100&to=200&tz=Europe%2FMoscow&siamCaptureVersion=2&siamCaptureKind=svgmodifier")
+	session, err := engine.Match(svgTarget, validTransport())
+	require.NoError(t, err)
+	// Force maxPanelJSONBytes to 0 to trigger fallback
+	session.maxPanelJSONBytes = 0
+	session.maxJSONBytes = 7777
+	require.NotNil(t, session.Initialization())
+	err = session.Initialization()(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 7777, gotLimit)
+}
+
+func TestSessionUsesProducerReadinessWithSVGCollector(t *testing.T) {
+	t.Parallel()
+	engine, err := NewEngine(captureTestConfig(true), NewSVGCollector())
+	require.NoError(t, err)
+	svgTarget := mustTargetURL(t, "http://grafana:3000/d/cm-sla/dashboard?render=1&siamCapturePanels=4&from=100&to=200&tz=Europe%2FMoscow&siamCaptureVersion=2&siamCaptureKind=svgmodifier")
+	session, err := engine.Match(svgTarget, validTransport())
+	require.NoError(t, err)
+	require.NotNil(t, session)
+	require.True(t, session.UsesProducerReadiness())
+}
+
+func TestSessionUsesProducerReadinessWithTableCollector(t *testing.T) {
+	t.Parallel()
+	engine, err := NewEngine(captureTestConfig(true), NewTableCollector())
+	require.NoError(t, err)
+	session, err := engine.Match(mustTargetURL(t, validCaptureTarget), validTransport())
+	require.NoError(t, err)
+	require.NotNil(t, session)
+	require.False(t, session.UsesProducerReadiness())
+}
+
+func TestSessionInitializationWithSVGCollector(t *testing.T) {
+	t.Parallel()
+	engine, err := NewEngine(captureTestConfig(true), NewSVGCollector())
+	require.NoError(t, err)
+	svgTarget := mustTargetURL(t, "http://grafana:3000/d/cm-sla/dashboard?render=1&siamCapturePanels=4&from=100&to=200&tz=Europe%2FMoscow&siamCaptureVersion=2&siamCaptureKind=svgmodifier")
+	session, err := engine.Match(svgTarget, validTransport())
+	require.NoError(t, err)
+	require.NotNil(t, session)
+	init := session.Initialization()
+	require.NotNil(t, init)
+}

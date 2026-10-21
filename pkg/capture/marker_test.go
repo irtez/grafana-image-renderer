@@ -179,3 +179,78 @@ func setPath(value string) func(*url.URL) {
 		target.RawPath = ""
 	}
 }
+
+func TestMarkerInvalidErrorString(t *testing.T) {
+	t.Parallel()
+	err := markerInvalid()
+	require.Error(t, err)
+	require.Equal(t, "CAPTURE_MARKER_INVALID: semantic capture marker is invalid", err.Error())
+}
+
+func TestMarkerUnsupportedKindError(t *testing.T) {
+	t.Parallel()
+	err := unsupportedKind()
+	require.Error(t, err)
+	require.Equal(t, "CAPTURE_KIND_UNSUPPORTED: semantic capture kind is not supported", err.Error())
+}
+
+func TestMarkerRejectsInvalidURLParse(t *testing.T) {
+	t.Parallel()
+	engine, err := NewEngine(captureTestConfig(true), literalCollector{kind: "grafana-table"})
+	require.NoError(t, err)
+	target := &url.URL{
+		Scheme:   "http",
+		Host:     "grafana:3000",
+		Path:     "/d-solo/cm-sla/dashboard",
+		RawQuery: "render=1&panelId=4&from=100%ZZ&to=200&tz=Europe%2FMoscow&siamCaptureVersion=1&siamCaptureKind=grafana-table",
+	}
+	session, err := engine.Match(target, validTransport())
+	require.Nil(t, session)
+	requireProtocolCode(t, err, "CAPTURE_MARKER_INVALID")
+}
+
+func TestMarkerV1WithPanelIdsRejection(t *testing.T) {
+	t.Parallel()
+	engine, err := NewEngine(captureTestConfig(true), literalCollector{kind: "grafana-table"})
+	require.NoError(t, err)
+	target := mustTargetURL(t, "http://grafana:3000/d-solo/cm-sla/dashboard?render=1&panelId=4&from=100&to=200&tz=Europe%2FMoscow&siamCaptureVersion=1&siamCaptureKind=grafana-table&siamCapturePanels=4,5")
+	session, err := engine.Match(target, validTransport())
+	require.Nil(t, session)
+	requireProtocolCode(t, err, "CAPTURE_MARKER_INVALID")
+}
+
+func TestMarkerV2WithDSoloPathRejection(t *testing.T) {
+	t.Parallel()
+	engine, err := NewEngine(captureTestConfig(true), literalCollector{kind: "svgmodifier"})
+	require.NoError(t, err)
+	target := mustTargetURL(t, "http://grafana:3000/d-solo/cm-sla/dashboard?render=1&siamCapturePanels=4&from=100&to=200&tz=Europe%2FMoscow&siamCaptureVersion=2&siamCaptureKind=svgmodifier")
+	session, err := engine.Match(target, validTransport())
+	require.Nil(t, session)
+	requireProtocolCode(t, err, "CAPTURE_MARKER_INVALID")
+}
+
+func TestVariablesHashNotPanicsWithTrickyValues(t *testing.T) {
+	t.Parallel()
+	require.NotPanics(t, func() {
+		_ = VariablesHash(url.Values{
+			"var-test": {"value"},
+		})
+	})
+}
+
+func TestMarkerRejectsInvalidPathSegment(t *testing.T) {
+	t.Parallel()
+	engine, err := NewEngine(captureTestConfig(true), literalCollector{kind: "grafana-table"})
+	require.NoError(t, err)
+	// v1 with path segment that is neither d-solo nor d
+	// segments = ["", "foo", "cm-sla", "dashboard"], route=1, segments[1]="foo"
+	target := &url.URL{
+		Scheme:   "http",
+		Host:     "grafana:3000",
+		Path:     "/foo/cm-sla/dashboard",
+		RawQuery: "render=1&panelId=4&from=100&to=200&tz=Europe%2FMoscow&siamCaptureVersion=1&siamCaptureKind=grafana-table",
+	}
+	session, err := engine.Match(target, validTransport())
+	require.Nil(t, session)
+	requireProtocolCode(t, err, "CAPTURE_MARKER_INVALID")
+}

@@ -44,7 +44,7 @@ type svgScriptResult struct {
 
 func (*SVGCollector) Collect(ctx context.Context, request Request, maxBytes int) (Collection, error) {
 	return collectSVGBatch(ctx, request, maxBytes, func(ctx context.Context, focus int, stamps map[int]svgStamp) (svgBatchStep, error) {
-		return readSVGBatch(ctx, request, focus, stamps)
+		return readSVGBatch(ctx, request, focus, stamps, defaultChromedpEvaluator)
 	})
 }
 
