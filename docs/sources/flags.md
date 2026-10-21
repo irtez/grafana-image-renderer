@@ -120,7 +120,7 @@ This is a verbatim copy of the output of the `grafana-image-renderer server --he
     Maximum UTF-8 bytes of one complete SVG snapshot. [config: capture.svg-max-panel-bytes]
 --capture.svg-max-panels=<int> [default: 16] [${CAPTURE_SVG_MAX_PANELS}]
     Maximum requested SVG panels per capture. [config: capture.svg-max-panels]
---capture.timeout=<duration> [default: 5s] [${CAPTURE_TIMEOUT}]
+--capture.timeout=<duration> [default: 1m0s] [${CAPTURE_TIMEOUT}]
     Capture time budget (SVG v2 includes navigation). [config: capture.timeout]
 --help / -h
     show help

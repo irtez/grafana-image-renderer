@@ -26,7 +26,7 @@ func CaptureFlags() []cli.Flag {
 		},
 		&cli.DurationFlag{
 			Name:    "capture.timeout",
-			Value:   5 * time.Second,
+			Value:   60 * time.Second,
 			Usage:   "Capture time budget (SVG v2 includes navigation). [config: capture.timeout]",
 			Sources: FromConfig("capture.timeout", "CAPTURE_TIMEOUT"),
 			Validator: func(v time.Duration) error {

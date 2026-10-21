@@ -14,7 +14,7 @@ Semantic capture is disabled by default.
 | CLI flag | Environment variable | Default |
 |---|---|---|
 | `--capture.semantic-enabled` | `CAPTURE_SEMANTIC_ENABLED` | `false` |
-| `--capture.timeout` | `CAPTURE_TIMEOUT` | `5s` |
+| `--capture.timeout` | `CAPTURE_TIMEOUT` | `1m0s` |
 | `--capture.max-json-bytes` | `CAPTURE_MAX_JSON_BYTES` | `1048576` |
 | `--capture.svg-max-panels` | `CAPTURE_SVG_MAX_PANELS` | `16` |
 | `--capture.svg-max-panel-bytes` | `CAPTURE_SVG_MAX_PANEL_BYTES` | `4194304` |
@@ -25,7 +25,7 @@ Equivalent YAML:
 ```yaml
 capture:
   semantic-enabled: true
-  timeout: 5s
+  timeout: 60s
   max-json-bytes: 1048576
   svg-max-panels: 16
   svg-max-panel-bytes: 4194304
@@ -104,6 +104,11 @@ Each panel's SVG output is **complete or an error**. Neither table rows inside a
 Only SVG v2 requests install `__SVG_MODIFIER_CAPTURE_V2__` before navigation. Its per-panel registry accepts selected panel IDs only. The plugin connects with its identity, begins a generation and publishes one snapshot or a safe failure. A new generation invalidates the previous result. Late callbacks, closed instances and duplicate publications cannot revive an old snapshot. Multiple live matching instances are an error, not an arbitrary selection.
 
 SVG v2 uses one `CAPTURE_TIMEOUT` budget from request matching, including browser startup/navigation and all panels. The earlier outer deadline wins; up to 500 ms (10% for short budgets) is reserved for the reply. SVG does not wait for image readiness. Table capture and ordinary rendering retain their existing readiness path and timeout behavior. Normal requests install no SVG hook, frame scan or polling loop; schema compilation is lazy on the first SVG capture.
+
+Бюджет semantic capture по умолчанию — 60 секунд. Для SVG он включает загрузку
+дашборда и все выбранные панели; у TableNG отсчитывается после навигации.
+Явные `CAPTURE_TIMEOUT` / `capture.timeout` сохраняют приоритет над default.
+Внешний `timeout` запроса ограничивает ожидание, но не увеличивает внутренний бюджет.
 
 The Grafana 13.1.3 scene adapter inventories exact panel IDs, disables refresh, opens selected rows/tabs and scrolls lazy panels in this temporary browser page only. No dashboard is saved. Completed snapshots survive tab unmount, but a newer producer generation invalidates an old snapshot. Changed dashboard/time/variables abort the batch rather than combine incompatible results. Repeated panels are not supported. Unknown scene/layout APIs fail explicitly. At deadline, ready panels remain usable and unfinished panels receive errors.
 

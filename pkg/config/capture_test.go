@@ -36,7 +36,7 @@ func TestCaptureConfigDefaults(t *testing.T) {
 
 	require.NoError(t, err)
 	require.False(t, cfg.SemanticEnabled)
-	require.Equal(t, 5*time.Second, cfg.Timeout)
+	require.Equal(t, 60*time.Second, cfg.Timeout)
 	require.Equal(t, 1048576, cfg.MaxJSONBytes)
 	require.Equal(t, 16, cfg.SVGMaxPanels)
 	require.Equal(t, 4194304, cfg.SVGMaxPanelBytes)
